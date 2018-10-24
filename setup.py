@@ -5,16 +5,26 @@ setup(
     # General info
     name="astro_reduce",
     version="0.1",
-    scripts=['astro_reduce'],
+    py_modules=["astro_reduce"],
 
     # Dependencies
-    install_requires=["astropy", "scipy", "pandas", "matplotlib"],
+    install_requires=["click",
+        "astropy",
+        "scipy",
+        "pandas",
+        "matplotlib"],
 
-    # metadata to display on PyPI
+    # Main function trigger
+    entry_points='''
+        [console_scripts]
+        astro_reduce=astro_reduce:cli
+    ''',
+
+    # Metadata to display on PyPI
     author="Raphaël Duque",
     author_email="duque@iap.fr",
     description="A simple CCD images reducer for the Paris Observatory.",
     license="MIT",
     keywords="astronomy reduction images automatic",
-    url="http://github.com/bandang0/astro_reduce", # project home page, if any
+    url="http://github.com/bandang0/astro_reduce", # Project home page
 )

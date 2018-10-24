@@ -114,6 +114,7 @@ Your configuration file 170817A.json will accordingly be:
     "dark_name": "dark",
     "nX": 1024,
     "nY": 512,
-}```
+}
+```
 
 #### Method
