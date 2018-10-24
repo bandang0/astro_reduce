@@ -1,0 +1,4 @@
+#!/usr/bin/env python3
+'''astro_reduce -- A Simple CCD images reducer for the Paris Observatory.'''
+
+print("Work in progress.")
