@@ -30,9 +30,10 @@ You will then find the intermediate reduction files in the `tmp` directory, and 
 Astroreduce will operate in a folder which must have a `darks` folder, a `flats` folder, and a `objects` folder. An example of a valid folder structure and corresponding configuration file can be found in the Example paragraph below.
 
 - The `darks` folder will contain only the dark field fits files, with names according to `[DARK_NAME]_[EXPOSURE_TIME_IN_MS]_[NUMBER].fits`. Here [DARK\_NAME] is the way you refer to darks (read in the configuration file, see next paragraph), and [NUMBER] is the number of the image in a series, if any.
-- The `flats` folder will contain only the flat field fits files, with names according to `[FLAT_NAME]_[FILTER]_[NUMBER].fits`. Here [FLAT\_NAME] is the way you refer to flats (also read in the configuration file), [FILTER] the filter used in acquisition (one of those read in the configuration file), and [NUMBER] is the number of the image in a series, if any.
+- The `flats` folder will contain only the flat field fits files, with names according to `[FLAT_NAME]_[FILTER]_[EXPOSURE_TIME_IN_MS]_[NUMBER].fits`. Here [FLAT\_NAME] is the way you refer to flats (also read in the configuration file), [FILTER] the filter used in acquisition (one of those read in the configuration file), and [NUMBER] is the number of the image in a series, if any.
 - The `objects` folder will contain all the object images, with names according to `[OBJECT_NAME]_[SERIES_NUMBER]_[FILTER]_[EXPOSURE_TIME_IN_MS]_[NUMBER].fits`. Here, [OBJECT\_NAME] is one of those read in the configuration file, and [SERIES\_NUMBER] is the number of the series, if any.
 
+Note: all of the bits in brackets are manditory for each file name.
 ##### Configuration file
 
 For a series of images to reduce, the configuration file must contain all the exposure times (in ms), filters, image sizes, object names and flat and dark image names as they appear in the different images file names.
@@ -51,7 +52,7 @@ All of this information is contained in a `json` file and organized as follows:
 }
 ```
 
-Note: of course, all objects need not be imaged with every filter or every exposure time. It suffices to specify each exposure time and filter used once. Also, numbers of images in series need not start with 0 or 1 (see the example directory below).
+Note: of course, all objects or flats need not be imaged with every filter or every exposure time. It suffices to specify each exposure time and filter used once. Also, numbers of images in series need not start with 0 or 1 (see the example directory below).
 
 ##### Folder structure after reduction
 
@@ -61,7 +62,7 @@ After reduction, you will find two more folders in the directory: `tmp` and `red
 
 Say you observed on August 17th 2017 the NGC4993 galaxy (at two different moments of the night, hence two series), the B612 asteroid and Regulus to serve as a reference star for photometry of NGC4993. You will thus have two series of NGC4993 images (filter V throughout and 30s exposure time), and one series for both Regulus (filters V and Clear, exposure time 1s) and the asteroid (both filters, exposure time 5s).
 
-You also have darks (which you call "dark") for each exposure time (1s, 5s and 30s), and flats (which you call "FLAT") for each filter.
+You also have darks (which you call "dark") for each exposure time (0.5s, 1s, 5s and 30s), and flats (which you call "FLAT") for each filter, taken with exposures of 0.5s.
 
 Your B612 series in the V filter had 3 images starting from 0, but images 0 and 1 turned out defocalized, so you eliminated them.
 
@@ -76,15 +77,17 @@ Here is the directory structure you end up with:
 │   ├── dark_1000_3.fits
 │   ├── dark_30000_0.fits
 │   ├── dark_30000_1.fits
+│   ├── dark_500_0.fits
+│   ├── dark_500_1.fits
 │   ├── dark_5000_0.fits
 │   ├── dark_5000_1.fits
 │   └── dark_5000_2.fits
 ├── flats
-│   ├── FLAT_Clear_0.fits
-│   ├── FLAT_Clear_1.fits
-│   ├── FLAT_V_0.fits
-│   ├── FLAT_V_1.fits
-│   └── FLAT_V_2.fits
+│   ├── FLAT_Clear_500_0.fits
+│   ├── FLAT_Clear_500_1.fits
+│   ├── FLAT_V_500_0.fits
+│   ├── FLAT_V_500_1.fits
+│   └── FLAT_V_500_2.fits
 └── objects
     ├── B612_1_Clear_5000_0.fits
     ├── B612_1_V_5000_2.fits
@@ -113,7 +116,7 @@ Your configuration file 170817A.json will accordingly be:
     "flat_name": "FLAT",
     "dark_name": "dark",
     "nX": 1024,
-    "nY": 512,
+    "nY": 512
 }
 ```
 
