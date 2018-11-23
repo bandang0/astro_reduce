@@ -1,9 +1,11 @@
 '''astro_reduce -- A simple CCD images reducer for the Paris Observatory.'''
 
 from sys import exit
-from os.path import basename
+from os.path import basename, exists
+from os import mkdir
 from glob import glob
 from json import loads
+import re
 from collections import defaultdict
 
 from astropy.io import fits
@@ -16,7 +18,6 @@ TMP = 'tmp'
 OBJ = 'objects'
 DARK = 'darks'
 FLAT = 'flats'
-TMP_PNG = 'tmp_png'
 AUX = 'aux'
 RED = 'reduced'
 
@@ -49,15 +50,28 @@ def fname_bits(fname):
     pieces = fname.split('_')
     return (pieces[1], pieces[-3], pieces[-2])
 
+# Write png from fits version of image, in same directory.
+def write_png(filename, plt):
+    '''Write PNG version from fits file.'''
+    with fits.open(filename) as fits_file:
+        plt.figure(len(filename))
+        plt.imshow(fits_file[0].data, aspect='auto', origin='lower',
+            cmap='magma')
+        plt.colorbar()
+        plt.savefig(f'{filename.split(".fit")[0]}.png', bbox_inches='tight')
+        plt.close(len(filename))
+
 @click.command()
 @click.argument('conf_file', type=click.File('r'))
-@click.option('--png', '-p', is_flag=True,
-        help='Write png format of intermediary images in tmp_png folder.')
-@click.option('--interpolate', '-i', is_flag=True,
-        help='Interpolate existing dark field images if some are missing.')
 @click.option('--verbose', '-v', is_flag=True,
         help='Enables verbose mode.')
-def cli(conf_file, png, interpolate, verbose):
+@click.option('--tmppng', '-t', is_flag=True,
+        help='Write PNG format of intermediary images in tmp folder.')
+@click.option('--redpng', '-r', is_flag=True,
+        help='Write PNG format of reduced images in reduced folder.')
+@click.option('--interpolate', '-i', is_flag=True,
+        help='Interpolate existing dark field images if some are missing.')
+def cli(conf_file, verbose, tmppng, redpng, interpolate):
     '''Reduce CCD images from objects with flat and dark field images.'''
 
     # Parse configuration file to obtain configuration dictionary.
@@ -76,34 +90,51 @@ def cli(conf_file, png, interpolate, verbose):
     for key in object_files:
         if not object_files[key]:
             click.echo(f'Did not find files for {key} object. Exiting.')
-            click.echo(f'Did you put them in the {OBJ} directory?')
+            click.echo(f'Did you put them in the `{OBJ}` directory?')
             exit(1)
     for key in dark_files:
         if not dark_files[key]:
             click.echo(f'Did not find files for {key}ms exposure darks. Exit.')
-            click.echo(f'They should be in the {DARK} directory.')
+            click.echo(f'They should be in the `{DARK}` directory.')
             exit(1)
     for key in flat_files:
         if not flat_files[key]:
             click.echo(f'Did not find files for the {key} filter flats.')
-            click.echo(f'They should be in the {FLAT} directory.')
+            click.echo(f'They should be in the `{FLAT}` directory.')
             exit(1)
 
+    # Report found files
+    reg = re.compile('_\d*\.')
     if verbose:
         click.echo('Files found:')
-        click.echo('Objects:')
+        click.echo(f'- Objects (`{OBJ}`):')
         for obj in conf_dic['objects']:
-            click.echo(f'{obj}: {object_files[obj]}')
-        click.echo('Dark fields:')
+            uniq_names = set([reg.sub('_*.', basename(name)) \
+                    for name in object_files[obj]]) 
+            click.echo(f'-- {obj}: {uniq_names}')
+
+        click.echo(f'- Dark fields (`{DARK}`):')
         for exp in conf_dic['exposures']:
-            click.echo(f'{exp}ms: {dark_files[exp]}')
-        click.echo('Flat fields:')
+            uniq_names = set([reg.sub('_*.', basename(name)) \
+                    for name in dark_files[exp]]) 
+            click.echo(f'-- {exp}ms: {uniq_names}')
+
+        click.echo(f'- Flat fields (`{FLAT}`):')
         for filt in conf_dic['filters']:
-            click.echo(f'{filt}: {flat_files[filt]}')
+            uniq_names = set([reg.sub('_*.', basename(name)) \
+                    for name in flat_files[filt]]) 
+            click.echo(f'-- {filt}: {uniq_names}')
+
+    # STEP 0: Create directory for tmp and reduced images if not existent
+    if not exists(RED):
+        mkdir(RED)
+    if not exists(TMP):
+        mkdir(TMP)
    
     # STEP 1: Write the master dark files (medians of darks) for each exposure.
     for exp in dark_files:
         mdark_data = np.median(np.array([fits.getdata(fitsfile) \
+
                 for fitsfile in dark_files[exp]]), axis=0)
         mdark_header = fits.getheader(dark_files[exp][0])
         fits.writeto(f'{TMP}/mdark_{exp}.fits', mdark_data, mdark_header,
@@ -168,3 +199,20 @@ def cli(conf_file, png, interpolate, verbose):
             final_header = fits.getheader(f'{OBJ}/{names_per_tag[tag][0]}')
             fits.writeto(f'{RED}/{obj}_{s}_{f}_{e}.fits', final_data,
                     final_header, overwrite=True)
+
+    # STEP 5: If specified in the options red-ong and tmppng, write
+    # PNG versions of all the tmp and reduced images.
+    if redpng or tmppng:
+        import matplotlib.pyplot as plt
+
+    if redpng:
+        print('Writing PNG versions of reduced images...')
+        for ffile in glob(f'{RED}/*.fits'):
+            write_png(ffile, plt)
+
+    if tmppng:
+        print('Writing TMP versions of intermediate images...')
+        for ffile in glob(f'{TMP}/*.fits'):
+            write_png(ffile, plt)
+    
+    # ALL DONE.
