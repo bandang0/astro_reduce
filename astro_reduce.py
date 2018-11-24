@@ -41,7 +41,7 @@ def align_and_median(infiles):
     data_to_mean = [np.roll(image, deltas[i], axis=(0,1))\
             for (i, image) in enumerate(images[1:])]
     data_to_mean.append(images[0])
-    return np.median(np.array(data_to_mean), axis=0)
+    return np.median(data_to_mean, axis=0)
 
 # Return the filter and exposure (strings) from an object file name.
 # 'NGC1000_1_V_1000_0.fits' gives ('1', 'V', '1000')
@@ -93,7 +93,9 @@ def cli(conf_file, verbose, tmppng, redpng, interpolate):
             click.echo(f'Did you put them in the `{OBJ}` directory?')
             exit(1)
     for key in dark_files:
-        if not dark_files[key]:
+        if not dark_files[key] and not interpolate:
+            # If the interpolate option is off and there are some darks 
+            # missing, exit.
             click.echo(f'Did not find files for {key}ms exposure darks. Exit.')
             click.echo(f'They should be in the `{DARK}` directory.')
             exit(1)
@@ -139,14 +141,56 @@ def cli(conf_file, verbose, tmppng, redpng, interpolate):
         fits.writeto(f'{TMP}/mdark_{exp}.fits', mdark_data, mdark_header,
                 overwrite=True)
 
+    # STEP 1.5: If there are some missing darks and the interpolate option
+    # is on, then interpolate the master darks.
+    # We use least squares linear interpolation, ie we calculate `a` and `b`
+    # such that (missing_dark) = a * (exposure_time) + b
+    all_exposures = conf_dic['exposures']
+    available_exposures = [exp for exp in dark_files if dark_files[exp]]
+
+    # Exit if there are no darks at all
+    if not available_exposures:
+        click.echo("There are no dark files at all! Cannot interpolate...")
+        click.echo("Exiting.")
+        exit(1)
+
+    if len(available_exposures) == 1:
+        # If there's only one, a = (only_dark) / (its exposure), b = 0
+        only_exp = available_exposures[0]
+        only_mdark = fits.getdata(f'{TMP}/mdark_{only_exp}.fits')
+        a = only_mdark / float(only_exp)
+        b = np.zeros_like(only_mdark)
+    else:
+        # If not, if you want to fit y = a * x + b,
+        # then the LS solution is:
+        # a = (<xy> - <x><y>) / (<x ** 2> - <x> ** 2)
+        # b = <y> - a * <x>
+        mxy = np.mean([float(exp) * fits.getdata(f'{TMP}/mdark_{exp}.fits')\
+                for exp in available_exposures], axis=0)
+        mx = np.mean([float(exp) for exp in available_exposures])
+        my = np.mean([fits.getdata(f'{TMP}/mdark_{exp}.fits')\
+                for exp in available_exposures], axis=0)
+        mx2 = np.mean([float(exp) ** 2 for exp in available_exposures])
+
+        # a and b
+        a = (mxy - mx * my) / (mx2 - mx ** 2)
+        b = my - mx * a
+        
+    # Write all the missing master darks!
+    for exp in all_exposures:
+        if not exp in available_exposures:
+            new_mdark_data = float(exp) * a + b
+            fits.writeto(f'{TMP}/mdark_{exp}.fits', new_mdark_data,
+                    overwrite=True)
+
     # STEP 2: Write master transmission files for each filter:
     # (median of flats - dark of same exposure) normalized.
     for filt in flat_files:
         # Example file of series to get exposure and header.
         fits_name = flat_files[filt][0]
         exp = fits_name.split('.fit')[0].split('_')[-2] # String exposure.
-        mflat_data = np.median(np.array([fits.getdata(fitsfile) \
-                for fitsfile in flat_files[filt]]), axis=0)
+        mflat_data = np.median([fits.getdata(fitsfile) \
+                for fitsfile in flat_files[filt]], axis=0)
         mflat_header = fits.getheader(fits_name)
 
         # Data of corresponding master dark (same exposure) and mflat (filter).
