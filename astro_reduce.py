@@ -5,8 +5,8 @@ from os.path import basename, exists
 from os import mkdir
 from glob import glob
 from json import loads
-import re
 from collections import defaultdict
+import re
 
 from astropy.io import fits
 from scipy.signal import fftconvolve
@@ -22,8 +22,8 @@ AUX = 'aux'
 RED = 'reduced'
 
 # Read data from list of files and return aligned and meaned version.
-def align_and_mean(infiles):
-    '''Return align and meaned image from list of file names to read data.'''
+def align_and_median(infiles):
+    '''Return the madian of the aligned images from input list of file name.'''
     if len(infiles) == 1:
         return fits.getdata(infiles[0])
     
@@ -41,7 +41,7 @@ def align_and_mean(infiles):
     data_to_mean = [np.roll(image, deltas[i], axis=(0,1))\
             for (i, image) in enumerate(images[1:])]
     data_to_mean.append(images[0])
-    return np.array(data_to_mean).mean(axis=0)
+    return np.median(np.array(data_to_mean), axis=0)
 
 # Return the filter and exposure (strings) from an object file name.
 # 'NGC1000_1_V_1000_0.fits' gives ('1', 'V', '1000')
@@ -134,7 +134,6 @@ def cli(conf_file, verbose, tmppng, redpng, interpolate):
     # STEP 1: Write the master dark files (medians of darks) for each exposure.
     for exp in dark_files:
         mdark_data = np.median(np.array([fits.getdata(fitsfile) \
-
                 for fitsfile in dark_files[exp]]), axis=0)
         mdark_header = fits.getheader(dark_files[exp][0])
         fits.writeto(f'{TMP}/mdark_{exp}.fits', mdark_data, mdark_header,
@@ -190,12 +189,13 @@ def cli(conf_file, verbose, tmppng, redpng, interpolate):
         # Now you align images which have the same tag.
         for tag in names_per_tag:
             # Rebuild series, filter and exposure from tag (they are those of 
-            # eg the first name in the list.
+            # eg the first name in the list.)
             s, f, e = fname_bits(names_per_tag[tag][0])
 
-            # Calculate aligned and meaned image from all images with same tag.
-            final_data \
-                = align_and_mean(glob(f'{TMP}/{obj}_{s}_{f}_{e}_*_{AUX}.fits'))
+            # Calculate aligned and medianed image
+            # from all images with same tag.
+            to_median = glob(f'{TMP}/{obj}_{s}_{f}_{e}_*_{AUX}.fits')
+            final_data = align_and_madian(to_median)
             final_header = fits.getheader(f'{OBJ}/{names_per_tag[tag][0]}')
             fits.writeto(f'{RED}/{obj}_{s}_{f}_{e}.fits', final_data,
                     final_header, overwrite=True)
