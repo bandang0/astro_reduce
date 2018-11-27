@@ -150,7 +150,7 @@ The _master transmission_ image for a given filter is an image which encompasses
 ### Individual image reduction
 An object image of given exposure and filter is reduced by __subtracting__ the corresponding exposure master dark image, and __dividing__ by the corresponding filter master transmission image.
 
->The FITS files for these images are found in the `tmp/` folder after reduction, with the extension `.aux.fits` (for _auxiliary_).
+>The FITS files for these images are found in the `tmp/` folder after reduction, with the extension `_aux.fits` (for _auxiliary_).
 
 ### Realignment and reduction
 Finally, for each series of same exposure and filter for each object, the auxiliary files are realigned through optimization of their __mutual cross-correlations__, and then their pixel-wise __median__ image is calculated. Using the median rather than the mean allows to efficiently remove hot pixels.
