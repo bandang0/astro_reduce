@@ -14,6 +14,10 @@ __Note:__ It is highly recommended to back up your raw data before using `astro_
 
 Use the `setup.py` file with `python3 setup.py install --user` to install the program locally. You should then include `~/.local/bin` (or `~/Library/Python/3.7/bin` for Mac users) to your path in order to invoke `astro_reduce` from the console.
 
+### Dependencies
+
+`astro_reduce` depends on the `click`, `astropy`, `numpy`, `scipy` and `matplotlib` (only for the `--tmppng` and `--redpng` options) Python packages, which are all available through the PyPI.
+
 ## Usage
 In the directory containing the `.json` configuration file (see the _Configuration file_ paragraph below), launch the reduction with:
 
