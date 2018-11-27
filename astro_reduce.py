@@ -89,15 +89,20 @@ def cli(conf_file, verbose, tmppng, redpng, interpolate):
     # Check if files exist.
     for key in object_files:
         if not object_files[key]:
-            click.echo(f'Did not find files for {key} object. Exiting.')
+            click.echo(f'Did not find files for {key} object.')
             click.echo(f'Did you put them in the `{OBJ}` directory?')
+            click.echo('Exiting.')
             exit(1)
     for key in dark_files:
         if not dark_files[key] and not interpolate:
             # If the interpolate option is off and there are some darks 
             # missing, exit.
-            click.echo(f'Did not find files for {key}ms exposure darks. Exit.')
+            click.echo(f'Did not find files for {key}ms exposure darks..')
             click.echo(f'They should be in the `{DARK}` directory.')
+            click.echo('If you want to interplate the missing dark fields')
+            click.echo('from the existing ones, use the `--interpolate`')
+            click.echo('option.')
+            click.echo('Exiting.')
             exit(1)
     for key in flat_files:
         if not flat_files[key]:
@@ -133,8 +138,11 @@ def cli(conf_file, verbose, tmppng, redpng, interpolate):
     if not exists(TMP):
         mkdir(TMP)
    
-    # STEP 1: Write the master dark files (medians of darks) for each exposure.
-    for exp in dark_files:
+    # STEP 1: Write the master dark files (medians of darks) 
+    # for each available exposure.
+    all_exposures = conf_dic['exposures']
+    available_exposures = [exp for exp in dark_files if dark_files[exp]]
+    for exp in available_exposures:
         mdark_data = np.median(np.array([fits.getdata(fitsfile) \
                 for fitsfile in dark_files[exp]]), axis=0)
         mdark_header = fits.getheader(dark_files[exp][0])
@@ -145,9 +153,6 @@ def cli(conf_file, verbose, tmppng, redpng, interpolate):
     # is on, then interpolate the master darks.
     # We use least squares linear interpolation, ie we calculate `a` and `b`
     # such that (missing_dark) = a * (exposure_time) + b
-    all_exposures = conf_dic['exposures']
-    available_exposures = [exp for exp in dark_files if dark_files[exp]]
-
     # Exit if there are no darks at all
     if not available_exposures:
         click.echo("There are no dark files at all! Cannot interpolate...")
@@ -177,10 +182,9 @@ def cli(conf_file, verbose, tmppng, redpng, interpolate):
         b = my - mx * a
         
     # Write all the missing master darks!
-    for exp in all_exposures:
-        if not exp in available_exposures:
-            new_mdark_data = float(exp) * a + b
-            fits.writeto(f'{TMP}/mdark_{exp}.fits', new_mdark_data,
+    for exp in list(set(all_exposures) - set(available_exposures)):
+        new_mdark_data = float(exp) * a + b
+        fits.writeto(f'{TMP}/mdark_{exp}.fits', new_mdark_data,
                     overwrite=True)
 
     # STEP 2: Write master transmission files for each filter:
@@ -239,7 +243,7 @@ def cli(conf_file, verbose, tmppng, redpng, interpolate):
             # Calculate aligned and medianed image
             # from all images with same tag.
             to_median = glob(f'{TMP}/{obj}_{s}_{f}_{e}_*_{AUX}.fits')
-            final_data = align_and_madian(to_median)
+            final_data = align_and_median(to_median)
             final_header = fits.getheader(f'{OBJ}/{names_per_tag[tag][0]}')
             fits.writeto(f'{RED}/{obj}_{s}_{f}_{e}.fits', final_data,
                     final_header, overwrite=True)
@@ -250,12 +254,12 @@ def cli(conf_file, verbose, tmppng, redpng, interpolate):
         import matplotlib.pyplot as plt
 
     if redpng:
-        print('Writing PNG versions of reduced images...')
+        click.echo('Writing PNG versions of reduced images...')
         for ffile in glob(f'{RED}/*.fits'):
             write_png(ffile, plt)
 
     if tmppng:
-        print('Writing TMP versions of intermediate images...')
+        click.echo('Writing TMP versions of intermediate images...')
         for ffile in glob(f'{TMP}/*.fits'):
             write_png(ffile, plt)
     
