@@ -3,7 +3,5 @@
     "filters": ["V", "Clear"],
     "exposures": [1000, 5000, 30000],
     "flat_name": "FLAT",
-    "dark_name": "dark",
-    "nX": 1024,
-    "nY": 512
+    "dark_name": "dark"
 }
