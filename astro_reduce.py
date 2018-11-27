@@ -1,4 +1,4 @@
-'''astro_reduce -- A simple CCD images reducer for the Paris Observatory.'''
+'''astro_reduce -- A Simple CCD Images Reducer for the Paris Observatory.'''
 
 from sys import exit
 from os.path import basename, exists

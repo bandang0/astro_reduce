@@ -11,7 +11,6 @@ setup(
     install_requires=["click",
         "astropy",
         "scipy",
-        "pandas",
         "matplotlib"],
 
     # Main function trigger
@@ -23,8 +22,8 @@ setup(
     # Metadata to display on PyPI
     author="Raphaël Duque",
     author_email="duque@iap.fr",
-    description="A simple CCD images reducer for the Paris Observatory.",
+    description="A Simple CCD Images Reducer for the Paris Observatory.",
     license="MIT",
     keywords="astronomy reduction images automatic",
-    url="http://github.com/bandang0/astro_reduce", # Project home page
+    url="http://github.com/bandang0/astro_reduce",
 )
