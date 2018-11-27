@@ -82,11 +82,11 @@ def cli(conf_file, verbose, tmppng, redpng, interpolate):
 
     # Obtain list of all object, dark, flat field files.
     object_files = dict([(obj,
-        glob(f'{OBJ}/{obj}*')) for obj in conf_dic['objects']])
+        glob(f'{OBJ}/{obj}_*.fit*')) for obj in conf_dic['objects']])
     dark_files = dict([(exp, 
-        glob(f'{DARK}/{dn}_{exp}*')) for exp in conf_dic['exposures']])
+        glob(f'{DARK}/{dn}_{exp}_*.fit*')) for exp in conf_dic['exposures']])
     flat_files = dict([(filt,
-        glob(f'{FLAT}/{fn}_{filt}*')) for filt in conf_dic['filters']])
+        glob(f'{FLAT}/{fn}_{filt}_*.fit*')) for filt in conf_dic['filters']])
 
     # Check if files exist.
     for key in object_files:
@@ -101,8 +101,8 @@ def cli(conf_file, verbose, tmppng, redpng, interpolate):
             # missing, exit.
             click.echo(f'Did not find files for {key}ms exposure darks.')
             click.echo(f'They should be in the `{DARK}` directory.')
-            click.echo('If you want to interplate the missing dark fields '
-                       'from the existing ones, use the `--interpolate`'
+            click.echo('If you want to interpolate the missing dark fields '
+                       'from the existing ones, use the `--interpolate` '
                        'option.')
             click.echo('Exiting.')
             exit(1)
@@ -136,7 +136,7 @@ def cli(conf_file, verbose, tmppng, redpng, interpolate):
 
     # STEP 0: Create directory for tmp and reduced images if not existent
     if verbose:
-        click.echo('Creating folders for reduced and intermadiary images.')
+        click.echo('Creating folders for reduced and intermediary images.')
     if not exists(RED):
         mkdir(RED)
     if not exists(TMP):
@@ -220,7 +220,7 @@ def cli(conf_file, verbose, tmppng, redpng, interpolate):
     # and exposure mdark. Do this regardless of series and number in series.
     for obj in object_files:
         if verbose:
-            click.echo(f'Writing auxiliary image for {obj} object.')
+            click.echo(f'Writing auxiliary images for {obj} object.')
         for fname in object_files[obj]:
             bfname = basename(fname)
             _, filt, exp = fname_bits(bfname)
