@@ -64,17 +64,19 @@ def write_png(filename, plt):
 @click.command()
 @click.argument('conf_file', type=click.File('r'))
 @click.option('--verbose', '-v', is_flag=True,
-        help='Enables verbose mode.')
+        help='Enables verbose mode (recommended).')
 @click.option('--tmppng', '-t', is_flag=True,
-        help='Write PNG format of intermediary images in tmp folder.')
+        help='Write PNG format of intermediary images after reduction.')
 @click.option('--redpng', '-r', is_flag=True,
-        help='Write PNG format of reduced images in reduced folder.')
+        help='Write PNG format of reduced images after reduction.')
 @click.option('--interpolate', '-i', is_flag=True,
         help='Interpolate existing dark field images if some are missing.')
 def cli(conf_file, verbose, tmppng, redpng, interpolate):
     '''Reduce CCD images from objects with flat and dark field images.'''
 
     # Parse configuration file to obtain configuration dictionary.
+    if verbose:
+        click.echo(f'Parsing configuration file {conf_file.name}.')
     conf_dic = loads(''.join(conf_file.read().split()))
     dn, fn = conf_dic['dark_name'], conf_dic['flat_name']
 
@@ -97,11 +99,11 @@ def cli(conf_file, verbose, tmppng, redpng, interpolate):
         if not dark_files[key] and not interpolate:
             # If the interpolate option is off and there are some darks 
             # missing, exit.
-            click.echo(f'Did not find files for {key}ms exposure darks..')
+            click.echo(f'Did not find files for {key}ms exposure darks.')
             click.echo(f'They should be in the `{DARK}` directory.')
-            click.echo('If you want to interplate the missing dark fields')
-            click.echo('from the existing ones, use the `--interpolate`')
-            click.echo('option.')
+            click.echo('If you want to interplate the missing dark fields '
+                       'from the existing ones, use the `--interpolate`'
+                       'option.')
             click.echo('Exiting.')
             exit(1)
     for key in flat_files:
@@ -124,7 +126,7 @@ def cli(conf_file, verbose, tmppng, redpng, interpolate):
         for exp in conf_dic['exposures']:
             uniq_names = set([reg.sub('_*.', basename(name)) \
                     for name in dark_files[exp]]) 
-            click.echo(f'-- {exp}ms: {uniq_names}')
+            click.echo(f'-- {exp}ms: {uniq_names if uniq_names else None}')
 
         click.echo(f'- Flat fields (`{FLAT}`):')
         for filt in conf_dic['filters']:
@@ -133,6 +135,8 @@ def cli(conf_file, verbose, tmppng, redpng, interpolate):
             click.echo(f'-- {filt}: {uniq_names}')
 
     # STEP 0: Create directory for tmp and reduced images if not existent
+    if verbose:
+        click.echo('Creating folders for reduced and intermadiary images.')
     if not exists(RED):
         mkdir(RED)
     if not exists(TMP):
@@ -146,6 +150,8 @@ def cli(conf_file, verbose, tmppng, redpng, interpolate):
         mdark_data = np.median(np.array([fits.getdata(fitsfile) \
                 for fitsfile in dark_files[exp]]), axis=0)
         mdark_header = fits.getheader(dark_files[exp][0])
+        if verbose:
+            click.echo(f'Writing {exp}ms master dark image.')
         fits.writeto(f'{TMP}/mdark_{exp}.fits', mdark_data, mdark_header,
                 overwrite=True)
 
@@ -184,6 +190,8 @@ def cli(conf_file, verbose, tmppng, redpng, interpolate):
     # Write all the missing master darks!
     for exp in list(set(all_exposures) - set(available_exposures)):
         new_mdark_data = float(exp) * a + b
+        if verbose:
+            click.echo(f'Interpolating {exp}ms master dark image.')
         fits.writeto(f'{TMP}/mdark_{exp}.fits', new_mdark_data,
                     overwrite=True)
 
@@ -203,12 +211,16 @@ def cli(conf_file, verbose, tmppng, redpng, interpolate):
         # (Flat - Dark) normalized
         mtrans_data = (mflat_data - mdark_data)\
                     / (mflat_data - mdark_data).mean(axis = 0)
+        if verbose:
+            click.echo(f'Writing {filt} filter master transmission image.')
         fits.writeto(f'{TMP}/mtrans_{filt}.fits', mtrans_data, mflat_header,
                 overwrite=True)
 
     # STEP 3: Reduce all the object images with corresponding filter mflat
     # and exposure mdark. Do this regardless of series and number in series.
     for obj in object_files:
+        if verbose:
+            click.echo(f'Writing auxiliary image for {obj} object.')
         for fname in object_files[obj]:
             bfname = basename(fname)
             _, filt, exp = fname_bits(bfname)
@@ -223,7 +235,7 @@ def cli(conf_file, verbose, tmppng, redpng, interpolate):
             fits.writeto(f'{TMP}/{bfname.split(".fit")[0]}_{AUX}.fits',
                     aux_data, aux_header, overwrite=True)
 
-    # STEP 4: Within series, realign the aux images and write the mean images
+    # STEP 4: Within series, realign the aux images and write the median images
     # of those. You are left with one image per object per filter per exposure
     # per series.
     for obj in object_files:
@@ -245,6 +257,9 @@ def cli(conf_file, verbose, tmppng, redpng, interpolate):
             to_median = glob(f'{TMP}/{obj}_{s}_{f}_{e}_*_{AUX}.fits')
             final_data = align_and_median(to_median)
             final_header = fits.getheader(f'{OBJ}/{names_per_tag[tag][0]}')
+            if verbose:
+                click.echo(f'Writing realigned images for series {s}/{f}/{e} '
+                           f'of object {obj}.')
             fits.writeto(f'{RED}/{obj}_{s}_{f}_{e}.fits', final_data,
                     final_header, overwrite=True)
 
@@ -254,13 +269,17 @@ def cli(conf_file, verbose, tmppng, redpng, interpolate):
         import matplotlib.pyplot as plt
 
     if redpng:
-        click.echo('Writing PNG versions of reduced images...')
+        if verbose:
+            click.echo('Writing PNG versions of reduced images.')
         for ffile in glob(f'{RED}/*.fits'):
             write_png(ffile, plt)
 
     if tmppng:
-        click.echo('Writing TMP versions of intermediate images...')
+        if verbose:
+            click.echo('Writing PNG versions of intermediate images.')
         for ffile in glob(f'{TMP}/*.fits'):
             write_png(ffile, plt)
     
+    if verbose:
+        click.echo('All done.')
     # ALL DONE.
