@@ -26,10 +26,10 @@ In the directory containing the `.json` configuration file (see the _Configurati
 You will then find the intermediate reduction files in the `tmp/` directory, and your reduced images in the `reduced/` directory.
 
 ### Options
-`  -v, --verbose : Enables verbose mode (recommended).`
-`  -t, --tmppng : Write PNG format of intermediary images after reduction (useful for inspection after reduction).`
-`  -r, --redpng : Write PNG format of reduced images after reduction (idem --tmppng).`
-`  -i, --interpolate : Interpolate existing dark field images if some are missing.`
+- `  -v, --verbose : Enables verbose mode (recommended).`
+- `  -t, --tmppng : Write PNG format of intermediary images after reduction (useful for inspection after reduction).`
+- `  -r, --redpng : Write PNG format of reduced images after reduction (idem --tmppng).`
+- `  -i, --interpolate : Interpolate existing dark field images if some are missing.`
 ## Directory structure and configuration file
 ### Initial folder structure
 `astro_reduce` will operate in a folder which must contain:
