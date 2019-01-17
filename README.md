@@ -23,7 +23,7 @@ In the directory containing the `.json` configuration file (see the _Configurati
 
 You will then find the intermediate reduction files in the `tmp/` directory, and your reduced images in the `reduced/` directory.
 
-`astro_reduced` has been tested on Linux and Mac platforms, and has yet to be tested on Windows.
+`astro_reduce` has been tested on Linux and Mac platforms, and has yet to be tested on Windows.
 
 ### Options
 - `  -v, --verbose : Enables verbose mode (recommended).`
@@ -162,6 +162,8 @@ An object image of given exposure and filter is reduced by __subtracting__ the c
 Finally, for each series of same exposure and filter for each object, the auxiliary files are realigned through optimization of their __mutual cross-correlations__, and then their pixel-wise __median__ image is calculated. Using the median rather than the mean allows to efficiently remove hot pixels. This will be all the more effective as dithering has been used in acquiring the images of a series.
 
 >These are the final reduced images and can be found in the `reduced/` folder after reduction.
+
+>Remaining hot pixels in the reduced images can be the result of insufficient dithering.
 
 ### Cross-series realignment
 Optionally, `astro_reduce` may realign the reduced images of a same object across different series, provided the filters and exposures match. This is done with the `-c, -cross` option. The corresponding images can be found in the `reduced/` folder under the same name as the reduced files, except the series bit is no longer present.
