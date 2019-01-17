@@ -71,7 +71,9 @@ def write_png(filename, plt):
         help='Write PNG format of reduced images after reduction.')
 @click.option('--interpolate', '-i', is_flag=True,
         help='Interpolate existing dark field images if some are missing.')
-def cli(conf_file, verbose, tmppng, redpng, interpolate):
+@click.option('--cross', '-c', is_flag=True,
+        help='Realign across series of a same object, filter and exposure.')
+def cli(conf_file, verbose, tmppng, redpng, interpolate, cross):
     '''Reduce CCD images from objects with flat and dark field images.'''
 
     # Parse configuration file to obtain configuration dictionary.
@@ -210,7 +212,7 @@ def cli(conf_file, verbose, tmppng, redpng, interpolate):
         
         # (Flat - Dark) normalized
         mtrans_data = (mflat_data - mdark_data)\
-                    / (mflat_data - mdark_data).mean(axis = 0)
+                    / (mflat_data - mdark_data).mean(axis=0)
         if verbose:
             click.echo(f'Writing {filt} filter master transmission image.')
         fits.writeto(f'{TMP}/mtrans_{filt}.fits', mtrans_data, mflat_header,
@@ -254,16 +256,49 @@ def cli(conf_file, verbose, tmppng, redpng, interpolate):
 
             # Calculate aligned and medianed image
             # from all images with same tag.
-            to_median = glob(f'{TMP}/{obj}_{s}_{f}_{e}_*_{AUX}.fits')
-            final_data = align_and_median(to_median)
-            final_header = fits.getheader(f'{OBJ}/{names_per_tag[tag][0]}')
+            aux_files = glob(f'{TMP}/{obj}_{s}_{f}_{e}_*_{AUX}.fits')
+            reduced_data = align_and_median(aux_files)
+            reduced_header = fits.getheader(f'{OBJ}/{names_per_tag[tag][0]}')
             if verbose:
-                click.echo(f'Writing realigned images for series {s}/{f}/{e} '
-                           f'of object {obj}.')
-            fits.writeto(f'{RED}/{obj}_{s}_{f}_{e}.fits', final_data,
-                    final_header, overwrite=True)
+                click.echo(f'Writing realigned image for series '
+                           f'{obj}:{s}/{f}/{e}.')
+            fits.writeto(f'{RED}/{obj}_{s}_{f}_{e}.fits', reduced_data,
+                    reduced_header, overwrite=True)
 
-    # STEP 5: If specified in the options red-ong and tmppng, write
+    # STEP 4.5: If the cross-series option is on, realign and median
+    # reduced images across the series (but within same filter and exposure).
+    if cross:
+        for obj in object_files:
+            # Group all reduced files of object across series, i.e. by filter 
+            # and exposure ("fe").
+            name_fe_hash = [(basename(fname),
+                f'{fname_bits(basename(fname))[1:]}')\
+                for name in glob(f'{RED}/{obj}_*.fits')]
+            names_per_fe = defaultdict(list)
+            for name, fe_hash in name_fe_hash:
+                names_per_fe[fe_hash].append(name)
+
+            # Now align images with same filter and exposure
+            for fe in names_per_fe:
+                # Get corresponding filter and exposure
+                example_file = names_per_fe[fe][0]
+                _, f, e = fname_bits(example_file)
+
+                # Calculate realigned image for all the images of object
+                # with filter "f" and exposure "e"
+                red_files = glob(f'{RED}/{obj}_*_{f}_{e}.fits')
+                if len(red_files) < 1:
+                    # Only one series, no realignment to do
+                    continue
+                aligned_data = align_and_median(red_files)
+                aligned_header = fits.getheader(f'{OBJ}/{example_file}')
+                if verbose:
+                    click.echo(f'Writing cross-series realigned image for '
+                               f'{obj}:{f}/{e}.')
+                fits.writeto(f'{RED}/{obj}_{f}_{e}.fits', aligned_data,
+                        aligned_header, overwrite=True)
+
+    # STEP 5: If specified in the options redpng and tmppng, write
     # PNG versions of all the tmp and reduced images.
     if redpng or tmppng:
         import matplotlib.pyplot as plt
