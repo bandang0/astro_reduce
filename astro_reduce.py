@@ -23,7 +23,7 @@ RED = 'reduced'
 
 # Read data from list of files and return aligned and meaned version.
 def align_and_median(infiles):
-    '''Return the madian of the aligned images from input list of file name.'''
+    '''Return the median of the aligned images from input list of file name.'''
     if len(infiles) == 1:
         return fits.getdata(infiles[0])
     
@@ -37,11 +37,11 @@ def align_and_median(infiles):
     deltas = [(ind[0] + int(nX / 2), ind[1] + int(nY / 2))\
             for ind in shift_indices]
 
-    # Roll the images and return their mean.
-    data_to_mean = [np.roll(image, deltas[i], axis=(0,1))\
+    # Roll the images and return their median.
+    data_to_median = [np.roll(image, deltas[i], axis=(0,1))\
             for (i, image) in enumerate(images[1:])]
-    data_to_mean.append(images[0])
-    return np.median(data_to_mean, axis=0)
+    data_to_median.append(images[0])
+    return np.median(data_to_median, axis=0)
 
 # Return the filter and exposure (strings) from an object file name.
 # 'NGC1000_1_V_1000_0.fits' gives ('1', 'V', '1000')
