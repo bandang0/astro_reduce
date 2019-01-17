@@ -26,7 +26,7 @@ def align_and_median(infiles):
     '''Return the median of the aligned images from input list of file name.'''
     if len(infiles) == 1:
         return fits.getdata(infiles[0])
-    
+
     # Collect arrays and crosscorrelate all with the first (except the first).
     images = [fits.getdata(fname) for fname in infiles]
     nX, nY = images[0].shape
@@ -75,7 +75,6 @@ def write_png(filename, plt):
         help='Realign across series of a same object, filter and exposure.')
 def cli(conf_file, verbose, tmppng, redpng, interpolate, cross):
     '''Reduce CCD images from objects with flat and dark field images.'''
-
     # Parse configuration file to obtain configuration dictionary.
     if verbose:
         click.echo(f'Parsing configuration file {conf_file.name}.')
@@ -85,7 +84,7 @@ def cli(conf_file, verbose, tmppng, redpng, interpolate, cross):
     # Obtain list of all object, dark, flat field files.
     object_files = dict([(obj,
         glob(f'{OBJ}/{obj}_*.fit*')) for obj in conf_dic['objects']])
-    dark_files = dict([(exp, 
+    dark_files = dict([(exp,
         glob(f'{DARK}/{dn}_{exp}_*.fit*')) for exp in conf_dic['exposures']])
     flat_files = dict([(filt,
         glob(f'{FLAT}/{fn}_{filt}_*.fit*')) for filt in conf_dic['filters']])
@@ -99,7 +98,7 @@ def cli(conf_file, verbose, tmppng, redpng, interpolate, cross):
             exit(1)
     for key in dark_files:
         if not dark_files[key] and not interpolate:
-            # If the interpolate option is off and there are some darks 
+            # If the interpolate option is off and there are some darks
             # missing, exit.
             click.echo(f'Did not find files for {key}ms exposure darks.')
             click.echo(f'They should be in the `{DARK}` directory.')
@@ -121,19 +120,19 @@ def cli(conf_file, verbose, tmppng, redpng, interpolate, cross):
         click.echo(f'- Objects (`{OBJ}`):')
         for obj in conf_dic['objects']:
             uniq_names = set([reg.sub('_*.', basename(name)) \
-                    for name in object_files[obj]]) 
+                    for name in object_files[obj]])
             click.echo(f'-- {obj}: {uniq_names}')
 
         click.echo(f'- Dark fields (`{DARK}`):')
         for exp in conf_dic['exposures']:
             uniq_names = set([reg.sub('_*.', basename(name)) \
-                    for name in dark_files[exp]]) 
+                    for name in dark_files[exp]])
             click.echo(f'-- {exp}ms: {uniq_names if uniq_names else None}')
 
         click.echo(f'- Flat fields (`{FLAT}`):')
         for filt in conf_dic['filters']:
             uniq_names = set([reg.sub('_*.', basename(name)) \
-                    for name in flat_files[filt]]) 
+                    for name in flat_files[filt]])
             click.echo(f'-- {filt}: {uniq_names}')
 
     # STEP 0: Create directory for tmp and reduced images if not existent
@@ -143,8 +142,8 @@ def cli(conf_file, verbose, tmppng, redpng, interpolate, cross):
         mkdir(RED)
     if not exists(TMP):
         mkdir(TMP)
-   
-    # STEP 1: Write the master dark files (medians of darks) 
+
+    # STEP 1: Write the master dark files (medians of darks)
     # for each available exposure.
     all_exposures = conf_dic['exposures']
     available_exposures = [exp for exp in dark_files if dark_files[exp]]
@@ -188,7 +187,7 @@ def cli(conf_file, verbose, tmppng, redpng, interpolate, cross):
         # a and b
         a = (mxy - mx * my) / (mx2 - mx ** 2)
         b = my - mx * a
-        
+
     # Write all the missing master darks!
     for exp in list(set(all_exposures) - set(available_exposures)):
         new_mdark_data = float(exp) * a + b
@@ -209,7 +208,7 @@ def cli(conf_file, verbose, tmppng, redpng, interpolate, cross):
 
         # Data of corresponding master dark (same exposure) and mflat (filter).
         mdark_data = fits.getdata(f'{TMP}/mdark_{exp}.fits')
-        
+
         # (Flat - Dark) normalized
         mtrans_data = (mflat_data - mdark_data)\
                     / (mflat_data - mdark_data).mean(axis=0)
@@ -250,7 +249,7 @@ def cli(conf_file, verbose, tmppng, redpng, interpolate, cross):
 
         # Now you align images which have the same tag.
         for tag in names_per_tag:
-            # Rebuild series, filter and exposure from tag (they are those of 
+            # Rebuild series, filter and exposure from tag (they are those of
             # eg the first name in the list.)
             s, f, e = fname_bits(names_per_tag[tag][0])
 
@@ -269,7 +268,7 @@ def cli(conf_file, verbose, tmppng, redpng, interpolate, cross):
     # reduced images across the series (but within same filter and exposure).
     if cross:
         for obj in object_files:
-            # Group all reduced files of object across series, i.e. by filter 
+            # Group all reduced files of object across series, i.e. by filter
             # and exposure ("fe").
             name_fe_hash = [(basename(fname),
                 f'{fname_bits(basename(fname))[1:]}')\
@@ -314,7 +313,7 @@ def cli(conf_file, verbose, tmppng, redpng, interpolate, cross):
             click.echo('Writing PNG versions of intermediate images.')
         for ffile in glob(f'{TMP}/*.fits'):
             write_png(ffile, plt)
-    
+
     if verbose:
         click.echo('All done.')
     # ALL DONE.
