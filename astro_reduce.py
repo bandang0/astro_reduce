@@ -34,7 +34,7 @@ def align_and_median(infiles):
             for image in images[1:]]
     shift_indices = [np.unravel_index(np.argmax(corr_array, axis=None),
             corr_array.shape) for corr_array in correlations]
-    deltas = [(ind[0] + int(nX / 2), ind[1] + int(nY / 2))\
+    deltas = [(ind[0] - int(nX / 2), ind[1] - int(nY / 2))\
             for ind in shift_indices]
 
     # Roll the images and return their median.
