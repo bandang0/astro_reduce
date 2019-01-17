@@ -30,6 +30,9 @@ You will then find the intermediate reduction files in the `tmp/` directory, and
 - `  -t, --tmppng : Write PNG format of intermediary images after reduction (useful for inspection after reduction).`
 - `  -r, --redpng : Write PNG format of reduced images after reduction (idem --tmppng).`
 - `  -i, --interpolate : Interpolate existing dark field images if some are missing.`
+- `  -c, --cross : Realign across series of same object, filter and exposure`
+- `  --help : Show help message.`
+
 ## Directory structure and configuration file
 ### Initial folder structure
 `astro_reduce` will operate in a folder which must contain:
@@ -159,3 +162,8 @@ An object image of given exposure and filter is reduced by __subtracting__ the c
 Finally, for each series of same exposure and filter for each object, the auxiliary files are realigned through optimization of their __mutual cross-correlations__, and then their pixel-wise __median__ image is calculated. Using the median rather than the mean allows to efficiently remove hot pixels. This will be all the more effective as dithering has been used in acquiring the images of a series.
 
 >These are the final reduced images and can be found in the `reduced/` folder after reduction.
+
+### Cross-series realignment
+Optionally, `astro_reduce` may realign the reduced images of a same object across different series, provided the filters and exposures match. This is done with the `-c, -cross` option. The corresponding images can be found in the `reduced/` folder under the same name as the reduced files, except the series bit is no longer present.
+
+>Beware of the interpretation of such cross-series images, as the series might well have been taken under various sky conditions.
