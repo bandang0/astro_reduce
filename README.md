@@ -156,6 +156,6 @@ An object image of given exposure and filter is reduced by __subtracting__ the c
 >The FITS files for these images are found in the `tmp/` folder after reduction, with the extension `_aux.fits` (for _auxiliary_).
 
 ### Realignment and reduction
-Finally, for each series of same exposure and filter for each object, the auxiliary files are realigned through optimization of their __mutual cross-correlations__, and then their pixel-wise __median__ image is calculated. Using the median rather than the mean allows to efficiently remove hot pixels.
+Finally, for each series of same exposure and filter for each object, the auxiliary files are realigned through optimization of their __mutual cross-correlations__, and then their pixel-wise __median__ image is calculated. Using the median rather than the mean allows to efficiently remove hot pixels. This will be all the more effective as dithering has been used in acquiring the images of a series.
 
 >These are the final reduced images and can be found in the `reduced/` folder after reduction.
