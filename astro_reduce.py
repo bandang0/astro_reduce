@@ -47,8 +47,8 @@ def align_and_median(infiles):
 # 'NGC1000_1_V_1000_0.fits' gives ('1', 'V', '1000')
 def fname_bits(fname):
     '''Return the series, filter and exposure from a file name.'''
-    pieces = fname.split('_')
-    return (pieces[1], pieces[-3], pieces[-2])
+    pieces = fname.split('.fit')[0].split('_')
+    return (pieces[1], pieces[2], pieces[3])
 
 # Write png from fits version of image, in same directory.
 def write_png(filename, plt):
@@ -272,7 +272,7 @@ def cli(conf_file, verbose, tmppng, redpng, interpolate, cross):
             # and exposure ("fe").
             name_fe_hash = [(basename(fname),
                 f'{fname_bits(basename(fname))[1:]}')\
-                for name in glob(f'{RED}/{obj}_*.fits')]
+                for fname in glob(f'{RED}/{obj}_*.fits')]
             names_per_fe = defaultdict(list)
             for name, fe_hash in name_fe_hash:
                 names_per_fe[fe_hash].append(name)
@@ -286,11 +286,11 @@ def cli(conf_file, verbose, tmppng, redpng, interpolate, cross):
                 # Calculate realigned image for all the images of object
                 # with filter "f" and exposure "e"
                 red_files = glob(f'{RED}/{obj}_*_{f}_{e}.fits')
-                if len(red_files) < 1:
+                if len(red_files) < 2:
                     # Only one series, no realignment to do
                     continue
                 aligned_data = align_and_median(red_files)
-                aligned_header = fits.getheader(f'{OBJ}/{example_file}')
+                aligned_header = fits.getheader(f'{RED}/{example_file}')
                 if verbose:
                     click.echo(f'Writing cross-series realigned image for '
                                f'{obj}:{f}/{e}.')
