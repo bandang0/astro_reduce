@@ -272,7 +272,7 @@ def cli(conf_file, verbose, tmppng, redpng, interpolate, cross):
             # and exposure ("fe").
             name_fe_hash = [(basename(fname),
                 f'{fname_bits(basename(fname))[1:]}')\
-                for fname in glob(f'{RED}/{obj}_*.fits')]
+                for fname in glob(f'{RED}/{obj}_*_*_*.fits')]
             names_per_fe = defaultdict(list)
             for name, fe_hash in name_fe_hash:
                 names_per_fe[fe_hash].append(name)
