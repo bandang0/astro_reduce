@@ -2,7 +2,7 @@
 
 ## What does astro_reduce do?
 
-`astro_reduce`  reduces astronomical CCD images in FITS format by treating raw images with dark and flat field images. It keeps the intermediate images produced along the reduction process.
+`astro_reduce` reduces astronomical CCD images in FITS format by treating raw images with dark and flat field images. It keeps the intermediate images produced along the reduction process.
 
 Optionally, it can interpolate missing dark field images from the available ones, and also convert the intermediate and reduced images to PNG format for easy inspection.
 
@@ -79,7 +79,7 @@ Say you observed the following objects on August 17th 2017:
 
 You will thus have two series of NGC4993 images (filter V throughout and 30s exposures), and one series for both Regulus (filters V and Clear, exposure time 1s) and the asteroid (both filters, exposure time 5s).
 
-You also have dark field images (which file names start with `dark`) for each exposure time (0.5s, 1s, 5s and 30s), and flat fields (which file names start with `FLAT`) for each filter, taken with exposures of 0.5s.
+You also have dark field images (whose file names start with `dark`) for each exposure time (0.5s, 1s, 5s and 30s), and flat fields (whose file names start with `FLAT`) for each filter, taken with exposures of 0.5s.
 
 Your B612 series in the V filter had 3 images starting from 0, but images 0 and 1 turned out defocalized, so you eliminated them.
 
@@ -138,18 +138,18 @@ For another example configuration file, please see the `example_config.json` fil
 
 ## Reduction method
 ### Master dark and transmission images
-The _master dark_ for a given exposure time is calculated as the pixel-wise __median__ of all the dark fields of that exposure. This allows to eliminate cosmic pixels.
+The _master dark_ for a given exposure time is calculated as the pixel-wise __median__ of all the dark fields of that exposure. This allows to eliminate cosmic ray traces.
 
 #### Dark field interpolation
 In the case where some dark fields are missing, `astro_reduce` can interpolate the available master darks to obtain master darks for all the exposures necessary to reduce the object images. This is done by specifying the `--interpolate` option.
 
-The interpolation is _least-square linear_, i.e. images A and B are determined from the available master dark images such as to __minimize the square error__ on the linear interpolation (master dark) = (exposure time) x A + B.
+The interpolation is _least-square linear_, i.e., two images A and B are determined from the available master dark images such as to __minimize the square error__ on the linear interpolation (master dark) = (exposure time) x A + B.
 
 Using these A and B, the missing master darks are calculated according to this equation.
 
 >The FITS files for all the master dark images (deduced from dark fields or interpolated) can be found after reduction in the `tmp` directory under the names `mdark_[exposure].fits`.
 
-The _master transmission_ image for a given filter is an image which encompasses the relative transmission of each pixel in the optical setup (telescope optics through filter to CCD matrix). It is calculated as the __normalized difference__ between the __median__ of all the flat fields for that filter and the master dark image for the corresponding exposure.
+The _master transmission_ image for a given filter is an image which encompasses the relative transmission of each pixel in the optical setup (telescope optics through filter to CCD matrix). It is calculated for every filter as the __normalized difference__ between the __median__ of all the flat fields for that filter and the master dark image for the corresponding exposure.
 
 >The FITS files for all the master transmission images (deduced from dark fields or interpolated) can be found after reduction in the `tmp/` directory under the names `mtrans_[filter].fits`.
 
@@ -168,4 +168,4 @@ Finally, for each series of same exposure and filter for each object, the auxili
 ### Cross-series realignment
 Optionally, `astro_reduce` may realign the reduced images of a same object across different series, provided the filters and exposures match. This is done with the `-c, -cross` option. The corresponding images can be found in the `reduced/` folder under the same name as the reduced files, except the series bit is no longer present.
 
->Beware of the interpretation of such cross-series images, as the series might well have been taken under various sky conditions.
+>Beware of the interpretation of such cross-series images, as the series might well have been taken under different sky conditions.
