@@ -8,10 +8,10 @@ from json import loads
 from collections import defaultdict
 import re
 
+import click
 from astropy.io import fits
 from scipy.signal import fftconvolve
 import numpy as np
-import click
 
 # Paths and extensions.
 TMP = 'tmp'
@@ -22,10 +22,8 @@ AUX = 'aux'
 RED = 'reduced'
 
 # Read data from list of files and return aligned and meaned version.
-
-
 def align_and_median(infiles):
-    '''Return the median of the aligned images from input list of file name.'''
+    '''Return the median of the re-aligned images from list of file names.'''
     if len(infiles) == 1:
         return fits.getdata(infiles[0])
 
@@ -34,6 +32,8 @@ def align_and_median(infiles):
     nX, nY = images[0].shape
     correlations = [fftconvolve(images[0], image[::-1, ::-1], mode='same')
                     for image in images[1:]]
+
+    # For each image determine the coordinate of maximum cross-correlation.
     shift_indices = [
         np.unravel_index(
             np.argmax(
@@ -44,32 +44,25 @@ def align_and_median(infiles):
               for ind in shift_indices]
 
     # Roll the images and return their median.
-    data_to_median = [np.roll(image, deltas[i], axis=(0, 1))
+    realigned_images = [np.roll(image, deltas[i], axis=(0, 1))
                       for (i, image) in enumerate(images[1:])]
-    data_to_median.append(images[0])
-    return np.median(data_to_median, axis=0)
+    return np.median(realigned_images.append(images[0]), axis=0)
 
 # Return the filter and exposure (strings) from an object file name.
 # 'NGC1000_1_V_1000_0.fits' gives ('1', 'V', '1000')
-
-
 def fname_bits(fname):
-    '''Return the series, filter and exposure from a file name.'''
+    '''Return the series, filter and exposure from an object file name.'''
     pieces = fname.split('.fit')[0].split('_')
     return (pieces[1], pieces[2], pieces[3])
 
 # Write png from fits version of image, in same directory.
-
-
-def write_png(filename, plt):
-    '''Write PNG version from fits file.'''
-    with fits.open(filename) as fits_file:
-        plt.figure(len(filename))
-        plt.imshow(fits_file[0].data, aspect='auto', origin='lower',
-                   cmap='magma')
-        plt.colorbar()
-        plt.savefig(f'{filename.split(".fit")[0]}.png', bbox_inches='tight')
-        plt.close(len(filename))
+def write_png(fname, plt):
+    '''Write PNG version of image from fits file.'''
+    plt.figure(1)
+    plt.imshow(fits.getdata(fname), aspect='auto', origin='lower', cmap='jet')
+    plt.colorbar()
+    plt.savefig(f'{fname.split(".fit")[0]}.png', bbox_inches='tight')
+    plt.close(1)
 
 
 @click.command()
@@ -95,10 +88,10 @@ def cli(conf_file, verbose, tmppng, redpng, interpolate, cross):
     # Parse configuration file to obtain configuration dictionary.
     if verbose:
         click.echo(f'Parsing configuration file {conf_file.name}.')
-    conf_dic = loads(''.join(conf_file.read().split()))
+    conf_dic = loads(conf_file.read())
     dn, fn = conf_dic['dark_name'], conf_dic['flat_name']
 
-    # Obtain list of all object, dark, flat field files.
+    # Obtain list of all object, dark, flat field file names.
     object_files = dict(
         [(obj, glob(f'{OBJ}/{obj}_*.fit*'))
             for obj in conf_dic['objects']])
@@ -131,9 +124,10 @@ def cli(conf_file, verbose, tmppng, redpng, interpolate, cross):
         if not flat_files[key]:
             click.echo(f'Did not find files for the {key} filter flats.')
             click.echo(f'They should be in the `{FLAT}` directory.')
+            click.echo('Exiting.')
             exit(1)
 
-    # Report found files
+    # Report all files found.
     reg = re.compile(r'_\d*\.')
     if verbose:
         click.echo('Files found:')
@@ -155,7 +149,7 @@ def cli(conf_file, verbose, tmppng, redpng, interpolate, cross):
                               for name in flat_files[filt]])
             click.echo(f'-- {filt}: {uniq_names}')
 
-    # STEP 0: Create directory for tmp and reduced images if not existent
+    # STEP 0: Create directory for tmp and reduced images if not existent.
     if verbose:
         click.echo('Creating folders for reduced and intermediary images.')
     if not exists(RED):
@@ -179,9 +173,9 @@ def cli(conf_file, verbose, tmppng, redpng, interpolate, cross):
 
     # STEP 1.5: If there are some missing darks and the interpolate option
     # is on, then interpolate the master darks.
-    # We use least squares linear interpolation, ie we calculate `a` and `b`
-    # such that (missing_dark) = a * (exposure_time) + b
-    # Exit if there are no darks at all
+    # We use least squares linear interpolation, i.e., we calculate `a` and `b`
+    # such that (missing_dark) = a * (exposure_time) + b.
+    # Exit if there are no darks at all.
     if not available_exposures:
         click.echo("There are no dark files at all! Cannot interpolate...")
         click.echo("Exiting.")
@@ -220,12 +214,14 @@ def cli(conf_file, verbose, tmppng, redpng, interpolate, cross):
     # STEP 2: Write master transmission files for each filter:
     # (median of flats - dark of same exposure) normalized.
     for filt in flat_files:
-        # Example file of series to get exposure and header.
-        fits_name = flat_files[filt][0]
-        exp = fits_name.split('.fit')[0].split('_')[-2]  # String exposure.
+        # Use first file of series to get exposure and header.
+        first_fits_name = flat_files[filt][0]
+        mflat_header = fits.getheader(first_fits_name)
+        exp = first_fits_name.split('.fit')[0].split('_')[-2]
+
+        # Median all flat fields of same filter.
         mflat_data = np.median([fits.getdata(fitsfile)
                                 for fitsfile in flat_files[filt]], axis=0)
-        mflat_header = fits.getheader(fits_name)
 
         # Data of corresponding master dark (same exposure) and mflat (filter).
         mdark_data = fits.getdata(f'{TMP}/mdark_{exp}.fits')
@@ -261,7 +257,7 @@ def cli(conf_file, verbose, tmppng, redpng, interpolate, cross):
     # of those. You are left with one image per object per filter per exposure
     # per series.
     for obj in object_files:
-        # Group all the object files by *tag*, i.e. by series, filter, exposure
+        # Group all the object files by *tag*, i.e. by series, filter, exposure.
         name_tag_hash = [(basename(fname), f'{fname_bits(basename(fname))}')
                          for fname in object_files[obj]]
         names_per_tag = defaultdict(list)
@@ -270,8 +266,8 @@ def cli(conf_file, verbose, tmppng, redpng, interpolate, cross):
 
         # Now you align images which have the same tag.
         for tag in names_per_tag:
-            # Rebuild series, filter and exposure from tag (they are those of
-            # eg the first name in the list.)
+            # Rebuild series, filter and exposure from tag (they are those of,
+            # e.g., the first name in the list.)
             s, f, e = fname_bits(names_per_tag[tag][0])
 
             # Calculate aligned and medianed image
@@ -298,17 +294,17 @@ def cli(conf_file, verbose, tmppng, redpng, interpolate, cross):
             for name, fe_hash in name_fe_hash:
                 names_per_fe[fe_hash].append(name)
 
-            # Now align images with same filter and exposure
+            # Now align images with same filter and exposure.
             for fe in names_per_fe:
-                # Get corresponding filter and exposure
+                # Get corresponding filter and exposure.
                 example_file = names_per_fe[fe][0]
                 _, f, e = fname_bits(example_file)
 
                 # Calculate realigned image for all the images of object
-                # with filter "f" and exposure "e"
+                # with filter "f" and exposure "e".
                 red_files = glob(f'{RED}/{obj}_*_{f}_{e}.fits')
                 if len(red_files) < 2:
-                    # Only one series, no realignment to do
+                    # Only one series, no realignment to do.
                     continue
                 aligned_data = align_and_median(red_files)
                 aligned_header = fits.getheader(f'{RED}/{example_file}')
@@ -318,7 +314,7 @@ def cli(conf_file, verbose, tmppng, redpng, interpolate, cross):
                 fits.writeto(f'{RED}/{obj}_{f}_{e}.fits', aligned_data,
                              aligned_header, overwrite=True)
 
-    # STEP 5: If specified in the options redpng and tmppng, write
+    # STEP 5: If options redpng or tmppng are on, write
     # PNG versions of all the tmp and reduced images.
     if redpng or tmppng:
         import matplotlib.pyplot as plt
