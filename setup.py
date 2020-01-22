@@ -11,6 +11,7 @@ setup(
     install_requires=["click",
         "astropy",
         "scipy",
+        "numpy",
         "matplotlib"],
 
     # Main function trigger
