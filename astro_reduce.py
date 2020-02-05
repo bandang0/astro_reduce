@@ -130,25 +130,27 @@ def cli(conf_file, verbose, tmppng, redpng, interpolate, cross):
 
     # Report all files found.
     reg = re.compile(r'_\d*\.')
+    tstring = "****** {:25} ******"
+    sstring = "    {:8}: {}"
     if verbose:
         click.echo('Files found:')
-        click.echo(f'- Objects (`{OBJ}`):')
+        click.echo(tstring.format(f' Objects (`{OBJ}`) '))
         for obj in conf_dic['objects']:
             uniq_names = set([reg.sub('_*.', basename(name))
                               for name in object_files[obj]])
-            click.echo(f'-- {obj}: {uniq_names}')
+            click.echo(sstring.format(obj, uniq_names))
 
-        click.echo(f'- Dark fields (`{DARK}`):')
+        click.echo(tstring.format(f' Dark fields (`{DARK}`) '))
         for exp in conf_dic['exposures']:
             uniq_names = set([reg.sub('_*.', basename(name))
-                              for name in dark_files[exp]])
-            click.echo(f'-- {exp}ms: {uniq_names if uniq_names else None}')
+                              for name in dark_files[exp]]) or None
+            click.echo(sstring.format(f'{exp}ms', uniq_names)
 
-        click.echo(f'- Flat fields (`{FLAT}`):')
+        click.echo(tstring.format(f' Flat fields (`{FLAT}`) '))
         for filt in conf_dic['filters']:
             uniq_names = set([reg.sub('_*.', basename(name))
                               for name in flat_files[filt]])
-            click.echo(f'-- {filt}: {uniq_names}')
+            click.echo(sstring.format(filt, uniq_names))
 
     # STEP 0: Create directory for tmp and reduced images if not existent.
     if verbose:
