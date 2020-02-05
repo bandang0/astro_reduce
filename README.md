@@ -137,7 +137,7 @@ Your configuration file 170817A.json will accordingly be:
 For another example configuration file, please see the `example_config.json` file in the project directory.
 
 ## Reduction method
-### Master dark and transmission images
+### Master dark images
 The _master dark_ for a given exposure time is calculated as the pixel-wise __median__ of all the dark fields of that exposure. This allows to eliminate cosmic ray traces.
 
 #### Dark field interpolation
@@ -149,7 +149,8 @@ Using these A and B, the missing master darks are calculated according to this e
 
 >The FITS files for all the master dark images (deduced from dark fields or interpolated) can be found after reduction in the `tmp` directory under the names `mdark_[exposure].fits`.
 
-The _master transmission_ image for a given filter is an image which encompasses the relative transmission of each pixel in the optical setup (telescope optics through filter to CCD matrix). It is calculated for every filter as the __normalized difference__ between the __median__ of all the flat fields for that filter and the master dark image for the corresponding exposure.
+### Master transmission images
+The _master transmission_ image for a given filter is an image which encompasses the relative transmission of each pixel in the optical setup (telescope optics through filter to CCD matrix). It is calculated for every filter as the __median__ over all flat field images, after __subtraction of corresponding master dark images__ and __normalization__.
 
 >The FITS files for all the master transmission images (deduced from dark fields or interpolated) can be found after reduction in the `tmp/` directory under the names `mtrans_[filter].fits`.
 
