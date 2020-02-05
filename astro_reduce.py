@@ -46,7 +46,8 @@ def align_and_median(infiles):
     # Roll the images and return their median.
     realigned_images = [np.roll(image, deltas[i], axis=(0, 1))
                       for (i, image) in enumerate(images[1:])]
-    return np.median(realigned_images.append(images[0]), axis=0)
+    realigned_images.append(images[0])
+    return np.median(realigned_images, axis=0)
 
 # Return the filter and exposure (strings) from an object file name.
 # 'NGC1000_1_V_1000_0.fits' gives ('1', 'V', '1000')
@@ -213,22 +214,24 @@ def cli(conf_file, verbose, tmppng, redpng, interpolate, cross):
 
     # STEP 2: Write master transmission files for each filter:
     # (median of flats - dark of same exposure) normalized.
+    # Handy function to extract exposure from flat file name.
+    fexp = lambda fname: fname.split('.fit')[0].split('_')[-2]
     for filt in flat_files:
-        # Use first file of series to get exposure and header.
-        first_fits_name = flat_files[filt][0]
-        mflat_header = fits.getheader(first_fits_name)
-        exp = first_fits_name.split('.fit')[0].split('_')[-2]
+        # Use first file of series to get header, where we set exposure to -1
+        # because the master transmission may be calculated using various
+        # exposure times.
+        mflat_header = fits.getheader(flat_files[filt][0])
+        mflat_header['EXPTIME'] = '-1'
+        mflat_header['EXPOSURE'] = '-1'
 
-        # Median all flat fields of same filter.
-        mflat_data = np.median([fits.getdata(fitsfile)
-                                for fitsfile in flat_files[filt]], axis=0)
+        # Calculate normalized flats.
+        normalized_flats = list()
+        for fitsfile in flat_files[filt]:
+            tmp = fits.getdata(fitsfile) \
+                - fits.getdata(f'{TMP}/mdark_{fexp(fitsfile)}.fits')
+            normalized_flats.append(tmp / tmp.mean(axis=0))
 
-        # Data of corresponding master dark (same exposure) and mflat (filter).
-        mdark_data = fits.getdata(f'{TMP}/mdark_{exp}.fits')
-
-        # (Flat - Dark) normalized
-        mtrans_data = (mflat_data - mdark_data)\
-            / (mflat_data - mdark_data).mean(axis=0)
+        mtrans_data = np.median(normalized_flats, axis=0)
         if verbose:
             click.echo(f'Writing {filt} filter master transmission image.')
         fits.writeto(f'{TMP}/mtrans_{filt}.fits', mtrans_data, mflat_header,
