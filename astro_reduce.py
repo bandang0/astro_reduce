@@ -144,7 +144,7 @@ def cli(conf_file, verbose, tmppng, redpng, interpolate, cross):
         for exp in conf_dic['exposures']:
             uniq_names = set([reg.sub('_*.', basename(name))
                               for name in dark_files[exp]]) or None
-            click.echo(sstring.format(f'{exp}ms', uniq_names)
+            click.echo(sstring.format(f'{exp}ms', uniq_names))
 
         click.echo(tstring.format(f' Flat fields (`{FLAT}`) '))
         for filt in conf_dic['filters']:
@@ -162,17 +162,20 @@ def cli(conf_file, verbose, tmppng, redpng, interpolate, cross):
 
     # STEP 1: Write the master dark files (medians of darks)
     # for each available exposure.
+    click.echo('Writing master dark images.')
     all_exposures = conf_dic['exposures']
     available_exposures = [exp for exp in dark_files if dark_files[exp]]
     for exp in available_exposures:
+        if verbose:
+            click.echo(f'    {exp}ms... ', nl=False)
         mdark_data = np.median(np.array([fits.getdata(fitsfile)
                                          for fitsfile in dark_files[exp]]),
                                axis=0)
         mdark_header = fits.getheader(dark_files[exp][0])
-        if verbose:
-            click.echo(f'Writing {exp}ms master dark image.')
         fits.writeto(f'{TMP}/mdark_{exp}.fits', mdark_data, mdark_header,
                      overwrite=True)
+        if verbose:
+            click.echo('Done.')
 
     # STEP 1.5: If there are some missing darks and the interpolate option
     # is on, then interpolate the master darks.
@@ -207,18 +210,24 @@ def cli(conf_file, verbose, tmppng, redpng, interpolate, cross):
         b = my - mx * a
 
     # Write all the missing master darks!
+    click.echo('Interpolating missing master dark images.')
     for exp in list(set(all_exposures) - set(available_exposures)):
-        new_mdark_data = float(exp) * a + b
         if verbose:
-            click.echo(f'Interpolating {exp}ms master dark image.')
+            click.echo(f'    {exp}ms... ', nl=False)
+        new_mdark_data = float(exp) * a + b
         fits.writeto(f'{TMP}/mdark_{exp}.fits', new_mdark_data,
                      overwrite=True)
+        if verbose:
+            click.echo('Done.')
 
     # STEP 2: Write master transmission files for each filter:
     # (median of flats - dark of same exposure) normalized.
     # Handy function to extract exposure from flat file name.
+    click.echo('Calculating master transmission images.')
     fexp = lambda fname: fname.split('.fit')[0].split('_')[-2]
     for filt in flat_files:
+        if verbose:
+            click.echo(f'    {filt}... ', nl=False)
         # Use first file of series to get header, where we set exposure to -1
         # because the master transmission may be calculated using various
         # exposure times.
@@ -234,16 +243,17 @@ def cli(conf_file, verbose, tmppng, redpng, interpolate, cross):
             normalized_flats.append(tmp / tmp.mean(axis=0))
 
         mtrans_data = np.median(normalized_flats, axis=0)
-        if verbose:
-            click.echo(f'Writing {filt} filter master transmission image.')
         fits.writeto(f'{TMP}/mtrans_{filt}.fits', mtrans_data, mflat_header,
                      overwrite=True)
+        if verbose:
+            click.echo("Done.")
 
     # STEP 3: Reduce all the object images with corresponding filter mflat
     # and exposure mdark. Do this regardless of series and number in series.
+    click.echo('Writing auxiliary object images.')
     for obj in object_files:
         if verbose:
-            click.echo(f'Writing auxiliary images for {obj} object.')
+            click.echo(f'    {obj}... ', nl=False)
         for fname in object_files[obj]:
             bfname = basename(fname)
             _, filt, exp = fname_bits(bfname)
@@ -257,11 +267,16 @@ def cli(conf_file, verbose, tmppng, redpng, interpolate, cross):
             aux_header = fits.getheader(fname)
             fits.writeto(f'{TMP}/{bfname.split(".fit")[0]}_{AUX}.fits',
                          aux_data, aux_header, overwrite=True)
+        if verbose:
+            click.echo('Done.')
 
     # STEP 4: Within series, realign the aux images and write the median images
     # of those. You are left with one image per object per filter per exposure
     # per series.
+    click.echo('Realigning object images.')
     for obj in object_files:
+        if verbose:
+            click.echo(f'    {obj}:')
         # Group all the object files by *tag*, i.e. by series, filter, exposure.
         name_tag_hash = [(basename(fname), f'{fname_bits(basename(fname))}')
                          for fname in object_files[obj]]
@@ -274,22 +289,26 @@ def cli(conf_file, verbose, tmppng, redpng, interpolate, cross):
             # Rebuild series, filter and exposure from tag (they are those of,
             # e.g., the first name in the list.)
             s, f, e = fname_bits(names_per_tag[tag][0])
-
+            if verbose:
+                click.echo(f'      {s}/{f}/{e}... ', nl=False)
             # Calculate aligned and medianed image
             # from all images with same tag.
             aux_files = glob(f'{TMP}/{obj}_{s}_{f}_{e}_*_{AUX}.fits')
             reduced_data = align_and_median(aux_files)
             reduced_header = fits.getheader(f'{OBJ}/{names_per_tag[tag][0]}')
-            if verbose:
-                click.echo(f'Writing realigned image for series '
-                           f'{obj}:{s}/{f}/{e}.')
+
             fits.writeto(f'{RED}/{obj}_{s}_{f}_{e}.fits', reduced_data,
                          reduced_header, overwrite=True)
+            if verbose:
+                click.echo('Done.')
 
     # STEP 4.5: If the cross-series option is on, realign and median
     # reduced images across the series (but within same filter and exposure).
     if cross:
+        click.echo('Realigning object images across series.')
         for obj in object_files:
+            if verbose:
+                click.echo(f'    {obj}... ', nl=False)
             # Group all reduced files of object across series, i.e. by filter
             # and exposure ("fe").
             name_fe_hash = [(basename(fname),
@@ -313,11 +332,10 @@ def cli(conf_file, verbose, tmppng, redpng, interpolate, cross):
                     continue
                 aligned_data = align_and_median(red_files)
                 aligned_header = fits.getheader(f'{RED}/{example_file}')
-                if verbose:
-                    click.echo(f'Writing cross-series realigned image for '
-                               f'{obj}:{f}/{e}.')
                 fits.writeto(f'{RED}/{obj}_{f}_{e}.fits', aligned_data,
                              aligned_header, overwrite=True)
+            if verbose:
+                click.echo('Done.')
 
     # STEP 5: If options redpng or tmppng are on, write
     # PNG versions of all the tmp and reduced images.
@@ -325,17 +343,16 @@ def cli(conf_file, verbose, tmppng, redpng, interpolate, cross):
         import matplotlib.pyplot as plt
 
     if redpng:
-        if verbose:
-            click.echo('Writing PNG versions of reduced images.')
+        click.echo('Writing PNG versions of reduced images... ', nl=False)
         for ffile in glob(f'{RED}/*.fits'):
             write_png(ffile, plt)
+        click.echo('Done.')
 
     if tmppng:
-        if verbose:
-            click.echo('Writing PNG versions of intermediate images.')
+        click.echo('Writing PNG versions of intermediate images... ', nl=False)
         for ffile in glob(f'{TMP}/*.fits'):
             write_png(ffile, plt)
+        click.echo('Done.')
 
-    if verbose:
-        click.echo('All done.')
+    click.echo('All done.')
     # ALL DONE.
