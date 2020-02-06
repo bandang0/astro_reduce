@@ -2,24 +2,31 @@
 
 from sys import exit
 from os.path import basename, exists
-from os import mkdir
+from os import mkdir, getcwd
+from shutil import copy
 from glob import glob
-from json import loads
+from json import loads, dump
 from collections import defaultdict
-import re
+from re import sub
 
 import click
+import numpy as np
 from astropy.io import fits
 from scipy.signal import fftconvolve
-import numpy as np
+
 
 # Paths and extensions.
+di = 'dark'
+fi = 'flat'
+BDARK = 'DARK'
+BFLAT = 'FLAT'
+BOBJ = 'ORIGINAL'
+OBJ = 'ar_objects'
+DARK = 'ar_darks'
+FLAT = 'ar_flats'
 TMP = 'tmp'
-OBJ = 'objects'
-DARK = 'darks'
-FLAT = 'flats'
-AUX = 'aux'
 RED = 'reduced'
+AUX = 'aux'
 
 # Read data from list of files and return aligned and meaned version.
 def align_and_median(infiles):
@@ -49,12 +56,81 @@ def align_and_median(infiles):
     realigned_images.append(images[0])
     return np.median(realigned_images, axis=0)
 
+# Return exposure and custom file name for a dark field image
+def d_read(fname):
+    '''Return exposure and custom file name for a dark field image.'''
+    head = fits.getheader(fname)
+    if 'EXPTIME' in head.keys():
+        exp = int(1000 * head['EXPTIME'])
+    elif 'EXPOSURE' in head.keys():
+        exp = int(1000 * head['EXPOSURE'])
+    else:
+        raise IOError(f'No exposure keyword in header of `{fname}`.')
+    return exp, f'{d}_{exp}_{abs(hash(fname))}.fits'
+
+# Return filter, exposure and custom file name for a flat field image
+def f_read(fname):
+    '''Return filter, exposure and custom file name for a flat field image.'''
+    head = fits.getheader(fname)
+    # Filter.
+    if 'FILTER' in head.keys():
+        fil = sub('[- _]', '', head['FILTER'])
+    else:
+        raise IOError(f'No filter keyword in header of `{fname}`.')
+
+    # Exposure.
+    if 'EXPTIME' in head.keys():
+        exp = int(1000 * head['EXPTIME'])
+    elif 'EXPOSURE' in head.keys():
+        exp = int(1000 * head['EXPOSURE'])
+    else:
+        raise IOError(f'No exposure keyword in header of `{fname}`.')
+
+    return fil, exp, f'{f}_{fil}_{exp}_{abs(hash(fname))}.fits'
+
+# Return object, filter, exposure and custom file name for an object image.
+def o_read(fname):
+    '''Return object, filter, exposure and custom file name for object image.'''
+    head = fits.getheader(fname)
+    # Object.
+    if 'OBJECT' in head.keys():
+        obj = sub('[ _]', '-', head['OBJECT'])
+    else:
+        raise IOError(f'No object keyword in header of `{fname}`.')
+
+    # Filter.
+    if 'FILTER' in head.keys():
+        fil = sub('[- _]', '', head['FILTER'])
+    else:
+        raise IOError(f'No filter keyword in header of `{fname}`.')
+
+    # Exposure.
+    if 'EXPTIME' in head.keys():
+        exp = int(1000 * head['EXPTIME'])
+    elif 'EXPOSURE' in head.keys():
+        exp = int(1000 * head['EXPOSURE'])
+    else:
+        raise IOError(f'No exposure keyword in header of `{fname}`.')
+
+    return obj, fil, exp, f'{obj}_{fil}_{exp}_{abs(hash(fname))}.fits'
+
+# Write the configuration file for images in current directory.
+def write_conf_file(objects, exposures, filters, conf_file_name):
+    '''Write the configuration file from list of objects, exposures, filters.'''
+    print(objects)
+    print(type(objects))
+    conf_dic = {'objects': objects,
+                'exposures': exposures,
+                'filters': filters}
+    with open(conf_file_name, 'w') as cdfile:
+        dump(conf_dic, cdfile, indent=2)
+
 # Return the filter and exposure (strings) from an object file name.
-# 'NGC1000_1_V_1000_0.fits' gives ('1', 'V', '1000')
+# 'NGC1000_V_1000_0.fits' gives ('V', '1000')
 def fname_bits(fname):
-    '''Return the series, filter and exposure from an object file name.'''
+    '''Return the filter and exposure from an object file name.'''
     pieces = fname.split('.fit')[0].split('_')
-    return (pieces[1], pieces[2], pieces[3])
+    return (pieces[-3], pieces[-2])
 
 # Write png from fits version of image, in same directory.
 def write_png(fname, plt):
@@ -65,42 +141,88 @@ def write_png(fname, plt):
     plt.savefig(f'{fname.split(".fit")[0]}.png', bbox_inches='tight')
     plt.close(1)
 
-
 @click.command()
-@click.argument('conf_file', type=click.File('r'))
-@click.option('--verbose', '-v', is_flag=True,
-              help='Enables verbose mode (recommended).')
-@click.option('--tmppng', '-t', is_flag=True,
-              help='Write PNG format of intermediary images after reduction.')
-@click.option('--redpng', '-r', is_flag=True,
-              help='Write PNG format of reduced images after reduction.')
-@click.option(
-    '--interpolate',
-    '-i',
-    is_flag=True,
+@click.option('--setup', '-s', is_flag=True,
+    help='Sets up the directory for reduction. Use this option only the first '
+         'time astro_reduce is run in the directory.')
+@click.option('--interpolate', '-i', is_flag=True,
     help='Interpolate existing dark field images if some are missing.')
-@click.option(
-    '--cross',
-    '-c',
-    is_flag=True,
+@click.option('--cross', '-c', is_flag=True,
     help='Realign across series of a same object, filter and exposure.')
-def cli(conf_file, verbose, tmppng, redpng, interpolate, cross):
+@click.option('--verbose', '-v', is_flag=True,
+    help='Enables verbose mode (recommended).')
+@click.option('--tmppng', '-t', is_flag=True,
+    help='Write PNG format of intermediary images after reduction.')
+@click.option('--redpng', '-r', is_flag=True,
+    help='Write PNG format of reduced images after reduction.')
+def cli(setup, interpolate, cross, verbose, tmppng, redpng):
     '''Reduce CCD images from objects with flat and dark field images.'''
+    # Initialize globals
+    conf_file_name = f'{getcwd().split("/")[-1]}.json'
+
+    # If setup option is on, set up the directory for reduction
+    if setup:
+        click.echo('Setting up for reduction.')
+        # Initialize objects, exposure, filters lists, and working directories
+        objects = list()
+        exposures = list()
+        filters = list()
+        if not exists(OBJ):
+            mkdir(OBJ)
+        if not exists(DARK):
+            mkdir(DARK)
+        if not exists(FLAT):
+            mkdir(FLAT)
+
+        # Open all images, retrieve exposures, filters, etc. and copy files to
+        # astro_reduce working directories. This way the images are backed-up
+        # at the same time
+        if verbose:
+            click.echo('Copying dark field images... ', nl=False)
+        for file in glob(f'{BDARK}/*.fit*'):
+            _, fn = d_read(file)
+            copy(file, f'{DARK}/{fn}')
+        if verbose:
+            click.echo('Done.')
+
+        if verbose:
+            click.echo('Copying flat field images... ', nl=False)
+        for file in glob(f'{BFLAT}/*.fit*'):
+            _, _, fn = f_read(file)
+            copy(file, f'{FLAT}/{fn}')
+        if verbose:
+            click.echo('Done.')
+
+        if verbose:
+            click.echo('Copying object images... ', nl=False)
+        for file in glob(f'{BOBJ}/*.fit*'):
+            obj, fil, exp, fn = o_read(file)
+            objects.append(obj)
+            filters.append(fil)
+            exposures.append(exp)
+            copy(file, f'{OBJ}/{fn}')
+        if verbose:
+            click.echo('Done.')
+
+        # End up the setup by writing the configuration file.
+        click.echo(f'Writing configuration file to {conf_file_name}.')
+        write_conf_file(list(set(objects)), list(set(exposures)),
+                        list(set(filters)), conf_file_name)
+
     # Parse configuration file to obtain configuration dictionary.
-    if verbose:
-        click.echo(f'Parsing configuration file {conf_file.name}.')
-    conf_dic = loads(conf_file.read())
-    dn, fn = conf_dic['dark_name'], conf_dic['flat_name']
+    click.echo(f'Parsing configuration file {conf_file_name}.')
+    with open(conf_file_name, 'r') as cfile:
+        conf_dic = loads(cfile.read())
 
     # Obtain list of all object, dark, flat field file names.
     object_files = dict(
         [(obj, glob(f'{OBJ}/{obj}_*.fit*'))
             for obj in conf_dic['objects']])
     dark_files = dict(
-        [(exp, glob(f'{DARK}/{dn}_{exp}_*.fit*'))
+        [(exp, glob(f'{DARK}/{di}_{exp}_*.fit*'))
             for exp in conf_dic['exposures']])
     flat_files = dict(
-        [(filt, glob(f'{FLAT}/{fn}_{filt}_*.fit*'))
+        [(filt, glob(f'{FLAT}/{fi}_{filt}_*.fit*'))
             for filt in conf_dic['filters']])
 
     # Check if files exist.
@@ -249,14 +371,14 @@ def cli(conf_file, verbose, tmppng, redpng, interpolate, cross):
             click.echo('Done.')
 
     # STEP 3: Reduce all the object images with corresponding filter mflat
-    # and exposure mdark. Do this regardless of series and number in series.
+    # and exposure mdark.
     click.echo('Writing auxiliary object images.')
     for obj in object_files:
         if verbose:
             click.echo(f'    {obj}... ', nl=False)
         for fname in object_files[obj]:
             bfname = basename(fname)
-            _, filt, exp = fname_bits(bfname)
+            filt, exp = fname_bits(bfname)
 
             # Corresponding darks and flats
             mdark_data = fits.getdata(f'{TMP}/mdark_{exp}.fits')
@@ -271,13 +393,12 @@ def cli(conf_file, verbose, tmppng, redpng, interpolate, cross):
             click.echo('Done.')
 
     # STEP 4: Within series, realign the aux images and write the median images
-    # of those. You are left with one image per object per filter per exposure
-    # per series.
+    # of those. You are left with one image per object per filter per exposure.
     click.echo('Realigning object images.')
     for obj in object_files:
         if verbose:
             click.echo(f'    {obj}:')
-        # Group all the object files by *tag*, i.e. by series, filter, exposure.
+        # Group all the object files by *tag*, i.e. by filter, exposure.
         name_tag_hash = [(basename(fname), f'{fname_bits(basename(fname))}')
                          for fname in object_files[obj]]
         names_per_tag = defaultdict(list)
@@ -288,16 +409,16 @@ def cli(conf_file, verbose, tmppng, redpng, interpolate, cross):
         for tag in names_per_tag:
             # Rebuild series, filter and exposure from tag (they are those of,
             # e.g., the first name in the list.)
-            s, f, e = fname_bits(names_per_tag[tag][0])
+            f, e = fname_bits(names_per_tag[tag][0])
             if verbose:
-                click.echo(f'      {s}/{f}/{e}... ', nl=False)
+                click.echo(f'      {f}/{e}... ', nl=False)
             # Calculate aligned and medianed image
             # from all images with same tag.
-            aux_files = glob(f'{TMP}/{obj}_{s}_{f}_{e}_*_{AUX}.fits')
+            aux_files = glob(f'{TMP}/{obj}_{f}_{e}_*_{AUX}.fits')
             reduced_data = align_and_median(aux_files)
             reduced_header = fits.getheader(f'{OBJ}/{names_per_tag[tag][0]}')
 
-            fits.writeto(f'{RED}/{obj}_{s}_{f}_{e}.fits', reduced_data,
+            fits.writeto(f'{RED}/{obj}_{f}_{e}.fits', reduced_data,
                          reduced_header, overwrite=True)
             if verbose:
                 click.echo('Done.')
