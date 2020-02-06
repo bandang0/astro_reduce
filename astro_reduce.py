@@ -1,13 +1,13 @@
 '''astro_reduce -- A Simple CCD Images Reducer for the Paris Observatory.'''
 
 from sys import exit
-from os.path import basename, exists
-from os import mkdir, getcwd
+from os.path import basename, exists, getsize
+from os import mkdir, getcwd, listdir
 from shutil import copy
 from glob import glob
-from json import loads, dump
+from json import loads, dump, decoder
 from collections import defaultdict
-from re import sub
+from re import compile, sub
 
 import click
 import numpy as np
@@ -35,7 +35,7 @@ def align_and_median(infiles):
         return fits.getdata(infiles[0])
 
     # Collect arrays and crosscorrelate all with the first (except the first).
-    images = [fits.getdata(fname) for fname in infiles]
+    images = list(map(fits.getdata, infiles))
     nX, nY = images[0].shape
     correlations = [fftconvolve(images[0], image[::-1, ::-1], mode='same')
                     for image in images[1:]]
@@ -66,7 +66,7 @@ def d_read(fname):
         exp = int(1000 * head['EXPOSURE'])
     else:
         raise IOError(f'No exposure keyword in header of `{fname}`.')
-    return exp, f'{d}_{exp}_{abs(hash(fname))}.fits'
+    return exp, f'{di}_{exp}_{abs(hash(fname))}.fits'
 
 # Return filter, exposure and custom file name for a flat field image
 def f_read(fname):
@@ -86,7 +86,7 @@ def f_read(fname):
     else:
         raise IOError(f'No exposure keyword in header of `{fname}`.')
 
-    return fil, exp, f'{f}_{fil}_{exp}_{abs(hash(fname))}.fits'
+    return fil, exp, f'{fi}_{fil}_{exp}_{abs(hash(fname))}.fits'
 
 # Return object, filter, exposure and custom file name for an object image.
 def o_read(fname):
@@ -117,8 +117,6 @@ def o_read(fname):
 # Write the configuration file for images in current directory.
 def write_conf_file(objects, exposures, filters, conf_file_name):
     '''Write the configuration file from list of objects, exposures, filters.'''
-    print(objects)
-    print(type(objects))
     conf_dic = {'objects': objects,
                 'exposures': exposures,
                 'filters': filters}
@@ -186,7 +184,9 @@ def cli(setup, interpolate, verbose, tmppng, redpng):
         if verbose:
             click.echo('Copying flat field images... ', nl=False)
         for file in glob(f'{BFLAT}/*.fit*'):
-            _, _, fn = f_read(file)
+            fil, exp, fn = f_read(file)
+            exposures.append(exp)
+            filters.append(fil)
             copy(file, f'{FLAT}/{fn}')
         if verbose:
             click.echo('Done.')
@@ -203,14 +203,26 @@ def cli(setup, interpolate, verbose, tmppng, redpng):
             click.echo('Done.')
 
         # End up the setup by writing the configuration file.
-        click.echo(f'Writing configuration file to {conf_file_name}.')
+        click.echo(f'Writing configuration data to `{conf_file_name}`.')
         write_conf_file(list(set(objects)), list(set(exposures)),
                         list(set(filters)), conf_file_name)
 
     # Parse configuration file to obtain configuration dictionary.
-    click.echo(f'Parsing configuration file {conf_file_name}.')
-    with open(conf_file_name, 'r') as cfile:
-        conf_dic = loads(cfile.read())
+    try:
+        click.echo(f'Parsing configuration file `{conf_file_name}`.')
+        with open(conf_file_name, 'r') as cfile:
+            conf_dic = loads(cfile.read())
+    except FileNotFoundError:
+        click.echo(f'Configuration file `{conf_file_name}` not found.')
+        click.echo('If this is the first time you run astro_reduce in this '
+                   'directory, use the `--setup` option to setup the reduction '
+                   'and generate a configuration file.')
+        exit(1)
+    except decoder.JSONDecodeError:
+        click.echo(f'Unable to parse configuration file `{conf_file_name}`.')
+        click.echo('To fix this, rerun astro_reduce with the --setup option.')
+        exit(1)
+
 
     # Obtain list of all object, dark, flat field file names.
     object_files = dict(
@@ -223,53 +235,60 @@ def cli(setup, interpolate, verbose, tmppng, redpng):
         [(filt, glob(f'{FLAT}/{fi}_{filt}_*.fit*'))
             for filt in conf_dic['filters']])
 
+    # Check working directories are still there.
+    if not (exists(OBJ) and exists(FLAT) and exists(DARK)):
+        click.echo('Seems like astro_reduces working folders '
+                   '(those starting with `ar_`) were removed. '
+                   'Please rerun astro_reduce with `--setup` option.')
+        exit(1)
+
+    # Check all images are same size (if not we'll have a problem).
+    if len(set(map(getsize,
+        glob(f'{DARK}/*') + glob(f'{FLAT}/*') + glob(f'{OBJ}/*')))) != 1:
+        click.echo('Seems like all image files don\'t have the same size.')
+        click.echo('Please remove corresponding files and all `ar_` folders, '
+                   'and rerun astro_reduce with `--setup` option.')
+        exit(1)
+
     # Check if files exist.
     for key in object_files:
         if not object_files[key]:
             click.echo(f'Did not find files for {key} object.')
-            click.echo(f'Did you put them in the `{OBJ}` directory?')
-            click.echo('Exiting.')
             exit(1)
     for key in dark_files:
         if not dark_files[key] and not interpolate:
             # If the interpolate option is off and there are some darks
             # missing, exit.
-            click.echo(f'Did not find files for {key}ms exposure darks.')
-            click.echo(f'They should be in the `{DARK}` directory.')
+            click.echo(f'Did not find dark field images for {key} exposure.')
             click.echo('If you want to interpolate the missing dark fields '
-                       'from the existing ones, use the `--interpolate` '
+                       'from the other ones, rerun using the `--interpolate` '
                        'option.')
-            click.echo('Exiting.')
             exit(1)
     for key in flat_files:
         if not flat_files[key]:
-            click.echo(f'Did not find files for the {key} filter flats.')
-            click.echo(f'They should be in the `{FLAT}` directory.')
-            click.echo('Exiting.')
+            click.echo(f'Did not find flat field images for {key} filter.')
             exit(1)
 
     # Report all files found.
-    reg = re.compile(r'_\d*\.')
+    reg = compile(r'_\d*\.')
     tstring = '****** {:25} ******'
     sstring = '    {:8}: {}'
     if verbose:
+        handy = lambda x: reg.sub('_*.', basename(x))
         click.echo('Files found:')
         click.echo(tstring.format(f' Objects (`{OBJ}`) '))
         for obj in conf_dic['objects']:
-            uniq_names = set([reg.sub('_*.', basename(name))
-                              for name in object_files[obj]])
+            uniq_names = set(map(handy, object_files[obj]))
             click.echo(sstring.format(obj, uniq_names))
 
         click.echo(tstring.format(f' Dark fields (`{DARK}`) '))
         for exp in conf_dic['exposures']:
-            uniq_names = set([reg.sub('_*.', basename(name))
-                              for name in dark_files[exp]]) or None
-            click.echo(sstring.format(f'{exp}ms', uniq_names))
+            uniq_names = set(map(handy, dark_files[exp])) or None
+            click.echo(sstring.format(f'{exp}', uniq_names))
 
         click.echo(tstring.format(f' Flat fields (`{FLAT}`) '))
         for filt in conf_dic['filters']:
-            uniq_names = set([reg.sub('_*.', basename(name))
-                              for name in flat_files[filt]])
+            uniq_names = set(map(handy, flat_files[filt]))
             click.echo(sstring.format(filt, uniq_names))
 
     # STEP 0: Create directory for tmp and reduced images if not existent.
@@ -287,10 +306,8 @@ def cli(setup, interpolate, verbose, tmppng, redpng):
     available_exposures = [exp for exp in dark_files if dark_files[exp]]
     for exp in available_exposures:
         if verbose:
-            click.echo(f'    {exp}ms... ', nl=False)
-        mdark_data = np.median(np.array([fits.getdata(fitsfile)
-                                         for fitsfile in dark_files[exp]]),
-                               axis=0)
+            click.echo(f'    {exp}... ', nl=False)
+        mdark_data = np.median(list(map(fits.getdata, dark_files[exp])), axis=0)
         mdark_header = fits.getheader(dark_files[exp][0])
         fits.writeto(f'{TMP}/mdark_{exp}.fits', mdark_data, mdark_header,
                      overwrite=True)
@@ -333,7 +350,7 @@ def cli(setup, interpolate, verbose, tmppng, redpng):
     click.echo('Interpolating missing master dark images.')
     for exp in list(set(all_exposures) - set(available_exposures)):
         if verbose:
-            click.echo(f'    {exp}ms... ', nl=False)
+            click.echo(f'    {exp}... ', nl=False)
         new_mdark_data = float(exp) * a + b
         fits.writeto(f'{TMP}/mdark_{exp}.fits', new_mdark_data,
                      overwrite=True)
