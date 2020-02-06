@@ -15,6 +15,9 @@ from astropy.io import fits
 from scipy.signal import fftconvolve
 
 
+# Comment
+hc = 'Exposure time in seconds'
+
 # Paths and extensions.
 di = 'dark'
 fi = 'flat'
@@ -309,8 +312,16 @@ def cli(setup, interpolate, verbose, tmppng, redpng):
             click.echo(f'    {exp}... ', nl=False)
         mdark_data = np.median(list(map(fits.getdata, dark_files[exp])), axis=0)
         mdark_header = fits.getheader(dark_files[exp][0])
-        fits.writeto(f'{TMP}/mdark_{exp}.fits', mdark_data, mdark_header,
-                     overwrite=True)
+
+        # Write fits file and header.
+        nname = f'{TMP}/mdark_{exp}.fits'
+        fits.writeto(nname, mdark_data, mdark_header, overwrite=True)
+        fits.setval(nname, 'FILTER', value='        ')
+        fits.setval(nname, 'IMAGETYP', value='Dark    ')
+        fits.setval(nname, 'EXPTIME', value=float(exp / 1000.), comment=hc)
+        fits.setval(nname, 'EXPOSURE', value=float(exp / 1000.), comment=hc)
+        fits.setval(nname, 'OBJECT', value='DARK    ')
+
         if verbose:
             click.echo('Done.')
 
@@ -351,8 +362,15 @@ def cli(setup, interpolate, verbose, tmppng, redpng):
         if verbose:
             click.echo(f'    {exp}... ', nl=False)
         new_mdark_data = float(exp) * a + b
-        fits.writeto(f'{TMP}/mdark_{exp}.fits', new_mdark_data,
-                     overwrite=True)
+
+        # Write fits file and header.
+        nname = f'{TMP}/mdark_{exp}.fits'
+        fits.writeto(nname, new_mdark_data, overwrite=True)
+        fits.setval(nname, 'FILTER', value='        ')
+        fits.setval(nname, 'IMAGETYP', value='Interpolated dark')
+        fits.setval(nname, 'EXPTIME', value=float(exp / 1000.), comment=hc)
+        fits.setval(nname, 'EXPOSURE', value=float(exp / 1000.), comment=hc)
+        fits.setval(nname, 'OBJECT', value='DARK    ')
         if verbose:
             click.echo('Done.')
 
@@ -364,12 +382,6 @@ def cli(setup, interpolate, verbose, tmppng, redpng):
     for filt in flat_files:
         if verbose:
             click.echo(f'    {filt}... ', nl=False)
-        # Use first file of series to get header, where we set exposure to -1
-        # because the master transmission may be calculated using various
-        # exposure times.
-        mflat_header = fits.getheader(flat_files[filt][0])
-        mflat_header['EXPTIME'] = '-1'
-        mflat_header['EXPOSURE'] = '-1'
 
         # Calculate normalized flats.
         normalized_flats = list()
@@ -379,8 +391,17 @@ def cli(setup, interpolate, verbose, tmppng, redpng):
             normalized_flats.append(tmp / tmp.mean(axis=0))
 
         mtrans_data = np.median(normalized_flats, axis=0)
-        fits.writeto(f'{TMP}/mtrans_{filt}.fits', mtrans_data, mflat_header,
-                     overwrite=True)
+        mflat_header = fits.getheader(flat_files[filt][0])
+
+        # Write fits file and header.
+        nname = f'{TMP}/mtrans_{filt}.fits'
+        fits.writeto(nname, mtrans_data, mflat_header, overwrite=True)
+        fits.setval(nname, 'FILTER', value=filt)
+        fits.setval(nname, 'IMAGETYP', value='Light Frame')
+        fits.setval(nname, 'EXPTIME', value='-1', comment=hc)
+        fits.setval(nname, 'EXPOSURE', value='-1', comment=hc)
+        fits.setval(nname, 'OBJECT', value='FLAT    ')
+
         if verbose:
             click.echo('Done.')
 
@@ -401,8 +422,15 @@ def cli(setup, interpolate, verbose, tmppng, redpng):
             # (Raw - Dark) / Trans
             aux_data = (fits.getdata(fname) - mdark_data) / mtrans_data
             aux_header = fits.getheader(fname)
-            fits.writeto(f'{TMP}/{bfname.split(".fit")[0]}_{AUX}.fits',
-                         aux_data, aux_header, overwrite=True)
+
+            # Write fits file and header.
+            nname = f'{TMP}/{bfname.split(".fit")[0]}_{AUX}.fits'
+            fits.writeto(nname, aux_data, aux_header, overwrite=True)
+            fits.setval(nname, 'FILTER', value=filt)
+            fits.setval(nname, 'IMAGETYP', value='Light Frame')
+            fits.setval(nname, 'EXPTIME', value=float(exp) / 1000., comment=hc)
+            fits.setval(nname, 'EXPOSURE', value=float(exp) / 1000., comment=hc)
+            fits.setval(nname, 'OBJECT', value=obj)
         if verbose:
             click.echo('Done.')
 
@@ -432,8 +460,14 @@ def cli(setup, interpolate, verbose, tmppng, redpng):
             reduced_data = align_and_median(aux_files)
             reduced_header = fits.getheader(f'{OBJ}/{names_per_tag[tag][0]}')
 
-            fits.writeto(f'{RED}/{obj}_{f}_{e}.fits', reduced_data,
-                         reduced_header, overwrite=True)
+            # Write fits file and header.
+            nname = f'{RED}/{obj}_{f}_{e}.fits'
+            fits.writeto(nname, reduced_data, reduced_header, overwrite=True)
+            fits.setval(nname, 'FILTER', value=f)
+            fits.setval(nname, 'IMAGETYP', value='Light Frame')
+            fits.setval(nname, 'EXPTIME', value=float(e) / 1000., comment=hc)
+            fits.setval(nname, 'EXPOSURE', value=float(e) / 1000., comment=hc)
+            fits.setval(nname, 'OBJECT', value=obj)
             if verbose:
                 click.echo('Done.')
 
