@@ -130,8 +130,8 @@ def cli(conf_file, verbose, tmppng, redpng, interpolate, cross):
 
     # Report all files found.
     reg = re.compile(r'_\d*\.')
-    tstring = "****** {:25} ******"
-    sstring = "    {:8}: {}"
+    tstring = '****** {:25} ******'
+    sstring = '    {:8}: {}'
     if verbose:
         click.echo('Files found:')
         click.echo(tstring.format(f' Objects (`{OBJ}`) '))
@@ -183,8 +183,8 @@ def cli(conf_file, verbose, tmppng, redpng, interpolate, cross):
     # such that (missing_dark) = a * (exposure_time) + b.
     # Exit if there are no darks at all.
     if not available_exposures:
-        click.echo("There are no dark files at all! Cannot interpolate...")
-        click.echo("Exiting.")
+        click.echo('There are no dark files at all! Cannot interpolate...')
+        click.echo('Exiting.')
         exit(1)
 
     if len(available_exposures) == 1:
@@ -246,7 +246,7 @@ def cli(conf_file, verbose, tmppng, redpng, interpolate, cross):
         fits.writeto(f'{TMP}/mtrans_{filt}.fits', mtrans_data, mflat_header,
                      overwrite=True)
         if verbose:
-            click.echo("Done.")
+            click.echo('Done.')
 
     # STEP 3: Reduce all the object images with corresponding filter mflat
     # and exposure mdark. Do this regardless of series and number in series.
@@ -310,7 +310,7 @@ def cli(conf_file, verbose, tmppng, redpng, interpolate, cross):
             if verbose:
                 click.echo(f'    {obj}... ', nl=False)
             # Group all reduced files of object across series, i.e. by filter
-            # and exposure ("fe").
+            # and exposure ('fe').
             name_fe_hash = [(basename(fname),
                              f'{fname_bits(basename(fname))[1:]}')
                             for fname in glob(f'{RED}/{obj}_*_*_*.fits')]
@@ -325,7 +325,7 @@ def cli(conf_file, verbose, tmppng, redpng, interpolate, cross):
                 _, f, e = fname_bits(example_file)
 
                 # Calculate realigned image for all the images of object
-                # with filter "f" and exposure "e".
+                # with filter 'f' and exposure 'e'.
                 red_files = glob(f'{RED}/{obj}_*_{f}_{e}.fits')
                 if len(red_files) < 2:
                     # Only one series, no realignment to do.
