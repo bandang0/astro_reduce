@@ -147,15 +147,13 @@ def write_png(fname, plt):
          'time astro_reduce is run in the directory.')
 @click.option('--interpolate', '-i', is_flag=True,
     help='Interpolate existing dark field images if some are missing.')
-@click.option('--cross', '-c', is_flag=True,
-    help='Realign across series of a same object, filter and exposure.')
 @click.option('--verbose', '-v', is_flag=True,
     help='Enables verbose mode (recommended).')
 @click.option('--tmppng', '-t', is_flag=True,
     help='Write PNG format of intermediary images after reduction.')
 @click.option('--redpng', '-r', is_flag=True,
     help='Write PNG format of reduced images after reduction.')
-def cli(setup, interpolate, cross, verbose, tmppng, redpng):
+def cli(setup, interpolate, verbose, tmppng, redpng):
     '''Reduce CCD images from objects with flat and dark field images.'''
     # Initialize globals
     conf_file_name = f'{getcwd().split("/")[-1]}.json'
@@ -420,41 +418,6 @@ def cli(setup, interpolate, cross, verbose, tmppng, redpng):
 
             fits.writeto(f'{RED}/{obj}_{f}_{e}.fits', reduced_data,
                          reduced_header, overwrite=True)
-            if verbose:
-                click.echo('Done.')
-
-    # STEP 4.5: If the cross-series option is on, realign and median
-    # reduced images across the series (but within same filter and exposure).
-    if cross:
-        click.echo('Realigning object images across series.')
-        for obj in object_files:
-            if verbose:
-                click.echo(f'    {obj}... ', nl=False)
-            # Group all reduced files of object across series, i.e. by filter
-            # and exposure ('fe').
-            name_fe_hash = [(basename(fname),
-                             f'{fname_bits(basename(fname))[1:]}')
-                            for fname in glob(f'{RED}/{obj}_*_*_*.fits')]
-            names_per_fe = defaultdict(list)
-            for name, fe_hash in name_fe_hash:
-                names_per_fe[fe_hash].append(name)
-
-            # Now align images with same filter and exposure.
-            for fe in names_per_fe:
-                # Get corresponding filter and exposure.
-                example_file = names_per_fe[fe][0]
-                _, f, e = fname_bits(example_file)
-
-                # Calculate realigned image for all the images of object
-                # with filter 'f' and exposure 'e'.
-                red_files = glob(f'{RED}/{obj}_*_{f}_{e}.fits')
-                if len(red_files) < 2:
-                    # Only one series, no realignment to do.
-                    continue
-                aligned_data = align_and_median(red_files)
-                aligned_header = fits.getheader(f'{RED}/{example_file}')
-                fits.writeto(f'{RED}/{obj}_{f}_{e}.fits', aligned_data,
-                             aligned_header, overwrite=True)
             if verbose:
                 click.echo('Done.')
 
