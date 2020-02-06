@@ -213,14 +213,14 @@ def cli(setup, interpolate, verbose, tmppng, redpng):
         with open(conf_file_name, 'r') as cfile:
             conf_dic = loads(cfile.read())
     except FileNotFoundError:
-        click.echo(f'Configuration file `{conf_file_name}` not found.')
-        click.echo('If this is the first time you run astro_reduce in this '
-                   'directory, use the `--setup` option to setup the reduction '
-                   'and generate a configuration file.')
+        click.echo(f'E: Configuration file `{conf_file_name}` not found.')
+        click.echo('E: If this is the first time you run astro_reduce in this\n'
+                   'E: directory, use the `--setup` option to setup the\n'
+                   'E: reduction and generate a configuration file.')
         exit(1)
     except decoder.JSONDecodeError:
-        click.echo(f'Unable to parse configuration file `{conf_file_name}`.')
-        click.echo('To fix this, rerun astro_reduce with the --setup option.')
+        click.echo(f'E: Unable to parse configuration file `{conf_file_name}`.')
+        click.echo('E: Fix by reruning astro_reduce with the --setup option.')
         exit(1)
 
 
@@ -237,36 +237,36 @@ def cli(setup, interpolate, verbose, tmppng, redpng):
 
     # Check working directories are still there.
     if not (exists(OBJ) and exists(FLAT) and exists(DARK)):
-        click.echo('Seems like astro_reduces working folders '
-                   '(those starting with `ar_`) were removed. '
-                   'Please rerun astro_reduce with `--setup` option.')
+        click.echo('E: Seems like astro_reduce\'s working folders\n'
+                   'E: (those starting with `ar_`) were removed.\n'
+                   'E: Please rerun astro_reduce with `--setup` option.')
         exit(1)
 
     # Check all images are same size (if not we'll have a problem).
     if len(set(map(getsize,
         glob(f'{DARK}/*') + glob(f'{FLAT}/*') + glob(f'{OBJ}/*')))) != 1:
-        click.echo('Seems like all image files don\'t have the same size.')
-        click.echo('Please remove corresponding files and all `ar_` folders, '
-                   'and rerun astro_reduce with `--setup` option.')
+        click.echo('E: Seems like all image files don\'t have the same size.\n')
+        click.echo('E: Please remove relevant files and all `ar_` folders,\n'
+                   'E: and rerun astro_reduce with `--setup` option.')
         exit(1)
 
     # Check if files exist.
     for key in object_files:
         if not object_files[key]:
-            click.echo(f'Did not find files for {key} object.')
+            click.echo(f'E: Did not find files for {key} object.')
             exit(1)
     for key in dark_files:
         if not dark_files[key] and not interpolate:
             # If the interpolate option is off and there are some darks
             # missing, exit.
-            click.echo(f'Did not find dark field images for {key} exposure.')
-            click.echo('If you want to interpolate the missing dark fields '
-                       'from the other ones, rerun using the `--interpolate` '
-                       'option.')
+            click.echo(f'E: Did not find dark field images for {key} exposure.')
+            click.echo('E: If you want to interpolate the missing dark fields\n'
+                       'E: from the other ones, rerun using the\n'
+                       'E: `--interpolate` option.')
             exit(1)
     for key in flat_files:
         if not flat_files[key]:
-            click.echo(f'Did not find flat field images for {key} filter.')
+            click.echo(f'E: Did not find flat field images for {key} filter.')
             exit(1)
 
     # Report all files found.
@@ -320,8 +320,7 @@ def cli(setup, interpolate, verbose, tmppng, redpng):
     # such that (missing_dark) = a * (exposure_time) + b.
     # Exit if there are no darks at all.
     if not available_exposures:
-        click.echo('There are no dark files at all! Cannot interpolate...')
-        click.echo('Exiting.')
+        click.echo('E: There are no dark files at all! Cannot interpolate...')
         exit(1)
 
     if len(available_exposures) == 1:
@@ -407,7 +406,7 @@ def cli(setup, interpolate, verbose, tmppng, redpng):
         if verbose:
             click.echo('Done.')
 
-    # STEP 4: Within series, realign the aux images and write the median images
+    # STEP 4: For all objects realign the aux images and write the median images
     # of those. You are left with one image per object per filter per exposure.
     click.echo('Realigning object images.')
     for obj in object_files:
