@@ -8,6 +8,7 @@ from glob import glob
 from json import loads, dump, decoder
 from collections import defaultdict
 from re import compile, sub
+from hashlib import blake2b
 
 import click
 import numpy as np
@@ -15,21 +16,29 @@ from astropy.io import fits
 from scipy.signal import fftconvolve
 
 
-# Comment
+# Comment for header keywords
 hc = 'Exposure time in seconds'
 
 # Paths and extensions.
-di = 'dark'
-fi = 'flat'
-BDARK = 'DARK'
-BFLAT = 'FLAT'
-BOBJ = 'ORIGINAL'
+# User image directories.
+UDARK = 'DARK'
+UFLAT = 'FLAT'
+UOBJ = 'ORIGINAL'
+
+# Astro-reduce working directories.
 OBJ = 'ar_objects'
 DARK = 'ar_darks'
 FLAT = 'ar_flats'
 TMP = 'tmp'
+
+# File names and extensions.
+di = 'dark'
+fi = 'flat'
 RED = 'reduced'
 AUX = 'aux'
+
+# Simple hashing function for file names.
+hsh = lambda x: blake2b(x.encode('utf-8'), digest_size=10).hexdigest()
 
 # Read data from list of files and return aligned and meaned version.
 def align_and_median(infiles):
@@ -38,7 +47,7 @@ def align_and_median(infiles):
         return fits.getdata(infiles[0])
 
     # Collect arrays and crosscorrelate all with the first (except the first).
-    images = list(map(fits.getdata, infiles))
+    images = [fits.getdata(_) for _ in infiles]
     nX, nY = images[0].shape
     correlations = [fftconvolve(images[0], image[::-1, ::-1], mode='same')
                     for image in images[1:]]
@@ -69,7 +78,7 @@ def d_read(fname):
         exp = int(1000 * head['EXPOSURE'])
     else:
         raise IOError(f'No exposure keyword in header of `{fname}`.')
-    return exp, f'{di}_{exp}_{abs(hash(fname))}.fits'
+    return exp, f'{di}_{exp}_{hsh(fname)}.fits'
 
 # Return filter, exposure and custom file name for a flat field image
 def f_read(fname):
@@ -89,7 +98,7 @@ def f_read(fname):
     else:
         raise IOError(f'No exposure keyword in header of `{fname}`.')
 
-    return fil, exp, f'{fi}_{fil}_{exp}_{abs(hash(fname))}.fits'
+    return fil, exp, f'{fi}_{fil}_{exp}_{hsh(fname)}.fits'
 
 # Return object, filter, exposure and custom file name for an object image.
 def o_read(fname):
@@ -115,7 +124,7 @@ def o_read(fname):
     else:
         raise IOError(f'No exposure keyword in header of `{fname}`.')
 
-    return obj, fil, exp, f'{obj}_{fil}_{exp}_{abs(hash(fname))}.fits'
+    return obj, fil, exp, f'{obj}_{fil}_{exp}_{hsh(fname)}.fits'
 
 # Write the configuration file for images in current directory.
 def write_conf_file(objects, exposures, filters, conf_file_name):
@@ -178,15 +187,16 @@ def cli(setup, interpolate, verbose, tmppng, redpng):
         # at the same time
         if verbose:
             click.echo('Copying dark field images... ', nl=False)
-        for file in glob(f'{BDARK}/*.fit*'):
-            _, fn = d_read(file)
+        for file in glob(f'{UDARK}/*.fit*'):
+            exp, fn = d_read(file)
+            exposures.append(exp)
             copy(file, f'{DARK}/{fn}')
         if verbose:
             click.echo('Done.')
 
         if verbose:
             click.echo('Copying flat field images... ', nl=False)
-        for file in glob(f'{BFLAT}/*.fit*'):
+        for file in glob(f'{UFLAT}/*.fit*'):
             fil, exp, fn = f_read(file)
             exposures.append(exp)
             filters.append(fil)
@@ -196,7 +206,7 @@ def cli(setup, interpolate, verbose, tmppng, redpng):
 
         if verbose:
             click.echo('Copying object images... ', nl=False)
-        for file in glob(f'{BOBJ}/*.fit*'):
+        for file in glob(f'{UOBJ}/*.fit*'):
             obj, fil, exp, fn = o_read(file)
             objects.append(obj)
             filters.append(fil)
@@ -273,7 +283,7 @@ def cli(setup, interpolate, verbose, tmppng, redpng):
             exit(1)
 
     # Report all files found.
-    reg = compile(r'_\d*\.')
+    reg = compile(r'_[a-z0-9]*\.')
     tstring = '****** {:25} ******'
     sstring = '    {:8}: {}'
     if verbose:
@@ -310,7 +320,7 @@ def cli(setup, interpolate, verbose, tmppng, redpng):
     for exp in available_exposures:
         if verbose:
             click.echo(f'    {exp}... ', nl=False)
-        mdark_data = np.median(list(map(fits.getdata, dark_files[exp])), axis=0)
+        mdark_data = np.median([fits.getdata(_) for _ in dark_files[exp]], axis=0)
         mdark_header = fits.getheader(dark_files[exp][0])
 
         # Write fits file and header.
@@ -323,7 +333,7 @@ def cli(setup, interpolate, verbose, tmppng, redpng):
         fits.setval(nname, 'OBJECT', value='DARK    ')
 
         if verbose:
-            click.echo('Done.')
+            click.echo(f'Done ({len(dark_files[exp])} images).')
 
     # STEP 1.5: If there are some missing darks and the interpolate option
     # is on, then interpolate the master darks.
@@ -403,7 +413,7 @@ def cli(setup, interpolate, verbose, tmppng, redpng):
         fits.setval(nname, 'OBJECT', value='FLAT    ')
 
         if verbose:
-            click.echo('Done.')
+            click.echo(f'Done ({len(flat_files[filt])} images).')
 
     # STEP 3: Reduce all the object images with corresponding filter mflat
     # and exposure mdark.
@@ -449,7 +459,7 @@ def cli(setup, interpolate, verbose, tmppng, redpng):
 
         # Now you align images which have the same tag.
         for tag in names_per_tag:
-            # Rebuild series, filter and exposure from tag (they are those of,
+            # Rebuild filter and exposure from tag (they are those of,
             # e.g., the first name in the list.)
             f, e = fname_bits(names_per_tag[tag][0])
             if verbose:
@@ -469,7 +479,7 @@ def cli(setup, interpolate, verbose, tmppng, redpng):
             fits.setval(nname, 'EXPOSURE', value=float(e) / 1000., comment=hc)
             fits.setval(nname, 'OBJECT', value=obj)
             if verbose:
-                click.echo('Done.')
+                click.echo(f'Done ({len(aux_files)} images).')
 
     # STEP 5: If options redpng or tmppng are on, write
     # PNG versions of all the tmp and reduced images.
