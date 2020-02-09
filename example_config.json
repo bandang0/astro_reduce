@@ -1,7 +1,5 @@
 {
     "objects": ["NGC4993", "regulus", "B612"],
     "filters": ["V", "Clear"],
-    "exposures": [1000, 5000, 30000],
-    "flat_name": "FLAT",
-    "dark_name": "dark"
+    "exposures": [1000, 5000, 30000]
 }
