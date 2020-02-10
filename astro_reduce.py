@@ -14,6 +14,7 @@ from packaging.version import parse
 import click
 import numpy as np
 from astropy.io import fits
+import scipy
 from scipy.signal import fftconvolve
 
 
@@ -180,6 +181,15 @@ def cli(setup, interpolate, verbose, tmppng, redpng):
     # If setup option is on, set up the directory for reduction
     if setup:
         click.echo('Setting up for reduction.')
+        # Make sure the user image folders are there:
+
+        if not (exists(UOBJ) and exists(UFLAT) and exists(UDARK)):
+            click.echo('E: Could not find the raw images folders `DARK`,\n'
+                       'E: `FLAT` or `ORIGINAL`. They should contain the\n'
+                       'E: images to be reduced. Refer to the documentation\n'
+                       'E: for details.')
+            exit(1)
+
         # Initialize objects, exposure, filters lists, and working directories
         objects = list()
         exposures = list()
