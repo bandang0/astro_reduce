@@ -17,6 +17,9 @@ setup(
         "numpy",
         "matplotlib"],
 
+    # Python version
+    python_requires=">=3.6",
+
     # Main function trigger
     entry_points='''
         [console_scripts]
