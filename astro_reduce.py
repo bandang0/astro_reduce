@@ -8,7 +8,7 @@ from glob import glob
 from json import loads, dump, decoder
 from collections import defaultdict
 from re import compile, sub
-from hashlib import blake2b
+from hashlib import md5
 from packaging.version import parse
 
 import click
@@ -40,7 +40,7 @@ RED = 'reduced'
 AUX = 'aux'
 
 # Simple hashing function for file names.
-hsh = lambda x: blake2b(x.encode('utf-8'), digest_size=10).hexdigest()
+hsh = lambda x: md5(x.encode('utf-8')).hexdigest()
 
 # Read data from list of files and return aligned and meaned version.
 def align_and_median(infiles):
