@@ -3,7 +3,7 @@
 from sys import exit
 from os.path import basename, exists, getsize
 from os import mkdir, getcwd, listdir
-from shutil import copy
+from shutil import copy, rmtree
 from glob import glob
 from json import loads, dump, decoder
 from collections import defaultdict
@@ -194,12 +194,15 @@ def cli(setup, interpolate, verbose, tmppng, redpng):
         objects = list()
         exposures = list()
         filters = list()
-        if not exists(OBJ):
-            mkdir(OBJ)
-        if not exists(DARK):
-            mkdir(DARK)
-        if not exists(FLAT):
-            mkdir(FLAT)
+        if exists(OBJ):
+            rmtree(OBJ, ignore_errors=True)
+        mkdir(OBJ)
+        if exists(DARK):
+            rmtree(DARK, ignore_errors=True)
+        mkdir(DARK)
+        if exists(FLAT):
+            rmtree(FLAT, ignore_errors=True)
+        mkdir(FLAT)
 
         # Open all images, retrieve exposures, filters, etc. and copy files to
         # astro_reduce working directories. This way the images are backed-up
@@ -326,10 +329,12 @@ def cli(setup, interpolate, verbose, tmppng, redpng):
     # STEP 0: Create directory for tmp and reduced images if not existent.
     if verbose:
         click.echo('Creating folders for reduced and intermediary images.')
-    if not exists(RED):
-        mkdir(RED)
-    if not exists(TMP):
-        mkdir(TMP)
+    if exists(RED):
+        rmtree(RED, ignore_errors=True)
+    mkdir(RED)
+    if exists(TMP):
+        rmtree(TMP, ignore_errors=True)
+    mkdir(TMP)
 
     # STEP 1: Write the master dark files (medians of darks)
     # for each available exposure.
