@@ -9,6 +9,7 @@ from json import loads, dump, decoder
 from collections import defaultdict
 from re import compile, sub
 from hashlib import blake2b
+from packaging.version import parse
 
 import click
 import numpy as np
@@ -165,6 +166,14 @@ def write_png(fname, plt):
     help='Write PNG format of reduced images after reduction.')
 def cli(setup, interpolate, verbose, tmppng, redpng):
     '''Reduce CCD images from objects with flat and dark field images.'''
+    # Before all things, check version of scipy.
+    if not (parse(scipy.__version__) < parse("1.4.1")):
+        click.echo(f'E: scipy version {scipy.__version__} detected.\n'
+                    'E: This could cause crashes during image reduction.\n'
+                    'E: Please install scipy <= 1.3.3 for astro_reduce to run\n'
+                    'E: correctly.')
+        exit(1)
+
     # Initialize globals
     conf_file_name = f'{getcwd().split("/")[-1]}.json'
 

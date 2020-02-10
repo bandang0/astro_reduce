@@ -13,7 +13,7 @@ setup(
     # Dependencies
     install_requires=["click",
         "astropy",
-        "scipy==1.2.1",
+        "scipy<=1.3.3",
         "numpy",
         "matplotlib"],
 
