@@ -7,7 +7,7 @@ with open("README.md", "r") as fh:
 setup(
     # General info
     name="astro_reduce",
-    version="2.0alpha",
+    version="2.0a1",
     py_modules=["astro_reduce"],
 
     # Dependencies
@@ -18,7 +18,7 @@ setup(
         "matplotlib"],
 
     # Python version
-    python_requires=">=3.6",
+    python_requires=">=3.5",
 
     # Main function trigger
     entry_points='''
