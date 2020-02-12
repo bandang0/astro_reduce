@@ -7,7 +7,7 @@ with open("README.md", "r") as fh:
 setup(
     # General info
     name="astro_reduce",
-    version="2.0a1",
+    version="2.0a2",
     py_modules=["astro_reduce"],
 
     # Dependencies
@@ -15,7 +15,8 @@ setup(
         "astropy",
         "scipy<=1.3.3",
         "numpy",
-        "matplotlib"],
+        "matplotlib",
+        "packaging"],
 
     # Python version
     python_requires=">=3.5",

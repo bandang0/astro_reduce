@@ -9,13 +9,13 @@ from json import loads, dump, decoder
 from collections import defaultdict
 from re import compile, sub
 from hashlib import md5
-from packaging.version import parse
 
 import click
 import numpy as np
 from astropy.io import fits
 import scipy
 from scipy.signal import fftconvolve
+from packaging.version import parse
 
 
 # Comment for header keywords
@@ -184,7 +184,7 @@ def cli(setup, interpolate, verbose, tmppng, redpng):
         # Make sure the user image folders are there:
 
         if not (exists(UOBJ) and exists(UFLAT) and exists(UDARK)):
-            click.echo('E: Could not find the raw images folders `DARK`,\n'
+            click.echo('E: Could not find the raw image folders `DARK`,\n'
                        'E: `FLAT` or `ORIGINAL`. They should contain the\n'
                        'E: images to be reduced. Refer to the documentation\n'
                        'E: for details.')
