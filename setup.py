@@ -7,7 +7,7 @@ with open("README.md", "r") as fh:
 setup(
     # General info
     name="astro_reduce",
-    version="2.0a2",
+    version="2.0",
     py_modules=["astro_reduce"],
 
     # Dependencies

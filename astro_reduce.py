@@ -18,7 +18,7 @@ from scipy.signal import fftconvolve
 from packaging.version import parse
 
 
-# Comment for header keywords
+# Comment for header keywords.
 hc = 'Exposure time in seconds'
 
 # Paths and extensions.
@@ -42,13 +42,14 @@ AUX = 'aux'
 # Simple hashing function for file names.
 hsh = lambda x: md5(x.encode('utf-8')).hexdigest()
 
-# Read data from list of files and return aligned and meaned version.
+
 def align_and_median(infiles):
-    '''Return the median of the re-aligned images from list of file names.'''
+    '''Read fits data from list of files, return aligned and medianed version.
+    '''
     if len(infiles) == 1:
         return fits.getdata(infiles[0])
 
-    # Collect arrays and crosscorrelate all with the first (except the first).
+    # Collect arrays and crosscorrelate all (except the first) with the first.
     images = [fits.getdata(_) for _ in infiles]
     nX, nY = images[0].shape
     correlations = [fftconvolve(images[0], image[::-1, ::-1], mode='same')
@@ -64,15 +65,15 @@ def align_and_median(infiles):
     deltas = [(ind[0] - int(nX / 2), ind[1] - int(nY / 2))
               for ind in shift_indices]
 
-    # Roll the images and return their median.
+    # Roll the images to realign them and return their median.
     realigned_images = [np.roll(image, deltas[i], axis=(0, 1))
-                      for (i, image) in enumerate(images[1:])]
+                        for (i, image) in enumerate(images[1:])]
     realigned_images.append(images[0])
     return np.median(realigned_images, axis=0)
 
-# Return exposure and custom file name for a dark field image
-def d_read(fname):
-    '''Return exposure and custom file name for a dark field image.'''
+
+def dark_read_header(fname):
+    '''Return exposure and standard file name for a dark field image.'''
     head = fits.getheader(fname)
     if 'EXPTIME' in head.keys():
         exp = int(1000 * head['EXPTIME'])
@@ -82,9 +83,9 @@ def d_read(fname):
         raise IOError('No exposure keyword in header of `{}`.'.format(fname))
     return exp, '{}_{}_{}.fits'.format(di, exp, hsh(fname))
 
-# Return filter, exposure and custom file name for a flat field image
-def f_read(fname):
-    '''Return filter, exposure and custom file name for a flat field image.'''
+
+def flat_read_header(fname):
+    '''Return filter, exposure and standard file name for a flat field image.'''
     head = fits.getheader(fname)
     # Filter.
     if 'FILTER' in head.keys():
@@ -102,9 +103,10 @@ def f_read(fname):
 
     return fil, exp, '{}_{}_{}_{}.fits'.format(fi, fil, exp, hsh(fname))
 
-# Return object, filter, exposure and custom file name for an object image.
-def o_read(fname):
-    '''Return object, filter, exposure and custom file name for object image.'''
+
+def obj_read_header(fname):
+    '''Return object, filter, exposure and standard file name for object image.
+    '''
     head = fits.getheader(fname)
     # Object.
     if 'OBJECT' in head.keys():
@@ -128,7 +130,7 @@ def o_read(fname):
 
     return obj, fil, exp, '{}_{}_{}_{}.fits'.format(obj, fil, exp, hsh(fname))
 
-# Write the configuration file for images in current directory.
+
 def write_conf_file(objects, exposures, filters, conf_file_name):
     '''Write the configuration file from list of objects, exposures, filters.'''
     conf_dic = {'objects': objects,
@@ -137,36 +139,53 @@ def write_conf_file(objects, exposures, filters, conf_file_name):
     with open(conf_file_name, 'w') as cdfile:
         dump(conf_dic, cdfile, indent=2)
 
-# Return the filter and exposure (strings) from an object file name.
-# 'NGC1000_V_1000_0.fits' gives ('V', '1000')
+
 def fname_bits(fname):
-    '''Return the filter and exposure from an object file name.'''
+    '''Return the filter and exposure from standard file name of an object.
+
+    'NGC1000_V_1000_0.fits' gives ('V', '1000').
+    '''
     pieces = fname.split('.fit')[0].split('_')
     return (pieces[-3], pieces[-2])
 
-# Write png from fits version of image, in same directory.
+
 def write_png(fname, plt):
-    '''Write PNG version of image from fits file.'''
+    '''Generate PNG version of image read in a fits file.
+
+    Save the PNG image in same directory as the fits file.
+    '''
     plt.figure(1)
     plt.imshow(fits.getdata(fname), aspect='auto', origin='lower', cmap='jet')
     plt.colorbar()
     plt.savefig('{}.png'.format(fname.split(".fit")[0]), bbox_inches='tight')
     plt.close(1)
 
+
 @click.command()
 @click.option('--setup', '-s', is_flag=True,
-    help='Sets up the directory for reduction. Use this option only the first '
-         'time astro_reduce is run in the directory.')
+              help='Sets up the directory for reduction. Use this option only '
+              'the first time astro_reduce is run in the directory.')
 @click.option('--interpolate', '-i', is_flag=True,
-    help='Interpolate existing dark field images if some are missing.')
+              help='Interpolate existing dark fields if some are missing.')
 @click.option('--verbose', '-v', is_flag=True,
-    help='Enables verbose mode (recommended).')
+              help='Enables verbose mode (recommended).')
 @click.option('--tmppng', '-t', is_flag=True,
-    help='Write PNG format of intermediary images after reduction.')
+              help='Write PNG format of intermediate images after reduction.')
 @click.option('--redpng', '-r', is_flag=True,
-    help='Write PNG format of reduced images after reduction.')
+              help='Write PNG format of reduced images after reduction.')
 def cli(setup, interpolate, verbose, tmppng, redpng):
-    '''Reduce CCD images from objects with flat and dark field images.'''
+    '''Main run of astro_reduce:
+
+    i) Copy all user fits data to files with standard names in the working
+       directories.
+    ii) Reduce dark field images to master darks for all exposures.
+    iii) If necessary, interpolate darks for exposures lacking dark fields.
+    iv) Reduce all flat field images to master transmission files.
+    v) Reduce all object images with the master reduction files.
+    vi) Realign the object images of same series.
+    vii) Generate PNG versions of temporary and reduced images.
+
+    '''
     # Before all things, check version of scipy.
     if not (parse(scipy.__version__) < parse("1.4.1")):
         click.echo('E: scipy version {} detected.\n'
@@ -175,22 +194,20 @@ def cli(setup, interpolate, verbose, tmppng, redpng):
                    'E: correctly.'.format(scipy.__version__))
         exit(1)
 
-    # Initialize globals
+    # Initialize configuration file name.
     conf_file_name = '{}.json'.format(getcwd().split("/")[-1])
 
-    # If setup option is on, set up the directory for reduction
+    # If setup option is on, set up the directory for reduction.
     if setup:
         click.echo('Setting up for reduction.')
         # Make sure the user image folders are there:
-
         if not (exists(UOBJ) and exists(UFLAT) and exists(UDARK)):
-            click.echo('E: Could not find the raw image folders `DARK`,\n'
-                       'E: `FLAT` or `ORIGINAL`. They should contain the\n'
-                       'E: images to be reduced. Refer to the documentation\n'
-                       'E: for details.')
+            click.echo('E: Could not find folder `DARK`, `FLAT` or `ORIGINAL`\n'
+                       'E: containing the raw images to be reduced.\n'
+                       'E: Refer to the documentation for details.')
             exit(1)
 
-        # Initialize objects, exposure, filters lists, and working directories
+        # Initialize objects, exposure, filters lists, and working directories.
         objects = list()
         exposures = list()
         filters = list()
@@ -206,11 +223,11 @@ def cli(setup, interpolate, verbose, tmppng, redpng):
 
         # Open all images, retrieve exposures, filters, etc. and copy files to
         # astro_reduce working directories. This way the images are backed-up
-        # at the same time
+        # at the same time.
         if verbose:
             click.echo('Copying dark field images... ', nl=False)
         for file in glob('{}/*.fit*'.format(UDARK)):
-            exp, fn = d_read(file)
+            exp, fn = dark_read_header(file)
             exposures.append(exp)
             copy(file, '{}/{}'.format(DARK, fn))
         if verbose:
@@ -219,7 +236,7 @@ def cli(setup, interpolate, verbose, tmppng, redpng):
         if verbose:
             click.echo('Copying flat field images... ', nl=False)
         for file in glob('{}/*.fit*'.format(UFLAT)):
-            fil, exp, fn = f_read(file)
+            fil, exp, fn = flat_read_header(file)
             exposures.append(exp)
             filters.append(fil)
             copy(file, '{}/{}'.format(FLAT, fn))
@@ -229,7 +246,7 @@ def cli(setup, interpolate, verbose, tmppng, redpng):
         if verbose:
             click.echo('Copying object images... ', nl=False)
         for file in glob('{}/*.fit*'.format(UOBJ)):
-            obj, fil, exp, fn = o_read(file)
+            obj, fil, exp, fn = obj_read_header(file)
             objects.append(obj)
             filters.append(fil)
             exposures.append(exp)
@@ -260,7 +277,6 @@ def cli(setup, interpolate, verbose, tmppng, redpng):
                    ''.format(conf_file_name))
         exit(1)
 
-
     # Obtain list of all object, dark, flat field file names.
     object_files = dict(
         [(obj, glob('{}/{}_*.fit*'.format(OBJ, obj)))
@@ -276,17 +292,17 @@ def cli(setup, interpolate, verbose, tmppng, redpng):
     if not (exists(OBJ) and exists(FLAT) and exists(DARK)):
         click.echo('E: Seems like astro_reduce\'s working folders\n'
                    'E: (those starting with `ar_`) were removed.\n'
-                   'E: Please rerun astro_reduce with `--setup` option.')
+                   'E: Please rerun astro_reduce with the `--setup` option.')
         exit(1)
 
     # Check all images are same size (if not we'll have a problem).
     if len(set(map(getsize,
-        glob('{}/*'.format(DARK))
-        + glob('{}/*'.format(FLAT))
-        + glob('{}/*'.format(OBJ))))) != 1:
+                   glob('{}/*'.format(DARK))
+                   + glob('{}/*'.format(FLAT))
+                   + glob('{}/*'.format(OBJ))))) != 1:
         click.echo('E: Seems like all image files don\'t have the same size.\n'
-                   'E: Please remove relevant files and all `ar_` folders,\n'
-                   'E: and rerun astro_reduce with `--setup` option.')
+                   'E: Please remove offending files and rerun astro_reduce\n'
+                   'E: with the `--setup` option.')
         exit(1)
 
     # Check if files exist.
@@ -298,9 +314,9 @@ def cli(setup, interpolate, verbose, tmppng, redpng):
         if not dark_files[key] and not interpolate:
             # If the interpolate option is off and there are some darks
             # missing, exit.
-            click.echo('E: Did not find dark field images for {} exposure.\n'
+            click.echo('E: Did not find dark field images for {}ms exposure.\n'
                        'E: If you want to interpolate the missing dark fields\n'
-                       'E: from the other ones, rerun using the\n'
+                       'E: from the ones available, rerun using the\n'
                        'E: `--interpolate` option.'.format(key))
             exit(1)
     for key in flat_files:
@@ -332,7 +348,7 @@ def cli(setup, interpolate, verbose, tmppng, redpng):
 
     # STEP 0: Create directory for tmp and reduced images if not existent.
     if verbose:
-        click.echo('Creating folders for reduced and intermediary images.')
+        click.echo('Creating folders to hold reduced and intermediate images.')
     if exists(RED):
         rmtree(RED, ignore_errors=True)
     mkdir(RED)
@@ -347,7 +363,7 @@ def cli(setup, interpolate, verbose, tmppng, redpng):
     available_exposures = [exp for exp in dark_files if dark_files[exp]]
     for exp in available_exposures:
         if verbose:
-            click.echo('    {}... '.format(exp), nl=False)
+            click.echo('    {}ms... '.format(exp), nl=False)
         mdark_data = np.median([fits.getdata(_) for _ in dark_files[exp]],
                                axis=0)
         mdark_header = fits.getheader(dark_files[exp][0])
@@ -400,7 +416,7 @@ def cli(setup, interpolate, verbose, tmppng, redpng):
     click.echo('Interpolating missing master dark images.')
     for exp in list(set(all_exposures) - set(available_exposures)):
         if verbose:
-            click.echo('    {}... '.format(exp), nl=False)
+            click.echo('    {}ms... '.format(exp), nl=False)
         new_mdark_data = float(exp) * a + b
 
         # Write fits file and header.
@@ -415,9 +431,9 @@ def cli(setup, interpolate, verbose, tmppng, redpng):
             click.echo('Done.')
 
     # STEP 2: Write master transmission files for each filter:
-    # (median of flats - dark of same exposure) normalized.
-    # Handy function to extract exposure from flat file name.
+    # mtrans = median(normalized(flat - dark of same exposure)).
     click.echo('Calculating master transmission images.')
+    # Handy function to extract exposure from flat file name.
     fexp = lambda fname: fname.split('.fit')[0].split('_')[-2]
     for filt in flat_files:
         if verbose:
@@ -445,7 +461,7 @@ def cli(setup, interpolate, verbose, tmppng, redpng):
         if verbose:
             click.echo('Done ({} images).'.format(len(flat_files[filt])))
 
-    # STEP 3: Reduce all the object images with corresponding filter mflat
+    # STEP 3: Reduce all the object images with corresponding filter mtrans
     # and exposure mdark.
     click.echo('Writing auxiliary object images.')
     for obj in object_files:
@@ -455,11 +471,11 @@ def cli(setup, interpolate, verbose, tmppng, redpng):
             bfname = basename(fname)
             filt, exp = fname_bits(bfname)
 
-            # Corresponding darks and flats
+            # Corresponding darks and flats.
             mdark_data = fits.getdata('{}/mdark_{}.fits'.format(TMP, exp))
             mtrans_data = fits.getdata('{}/mtrans_{}.fits'.format(TMP, filt))
 
-            # (Raw - Dark) / Trans
+            # (Raw - Dark) / Trans.
             aux_data = (fits.getdata(fname) - mdark_data) / mtrans_data
             aux_header = fits.getheader(fname)
 
