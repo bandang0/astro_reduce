@@ -27,7 +27,7 @@ Alternatively, use the `setup.py` file in the project directory with `python3 se
 
 `astro_reduce` depends on the `click`, `astropy`, `numpy`, `scipy`, `packaging` and `matplotlib` Python packages, which are all available through the PyPI. The `matplotlib` package in only necessary when using the `--tmppng` and `redpng` options; see the _Options_ paragraph below for more details.
 
-__Note:__ It is found that the realignment step of `astro_reduce`'s reduction crashes when run with versions of scipy as of 1.4.1. Therefore, it is recommended to use `astro_reduce` with scipy < 1.4.1. This is of course taken care of if `astro_reduce` was installed through the PyPI.
+__Note:__ It is found that the realignment step of `astro_reduce`'s reduction crashes when run with versions of `scipy` as of 1.4.1. Therefore, it is recommended to use `astro_reduce` with `scipy < 1.4.1`. This is of course taken care of if `astro_reduce` was installed through the PyPI.
 
 ## Usage
 When used for the first time in a directory, or when the data has been modified since the last use of `astro_reduce`, the program should be invoked with the `--setup` option:
@@ -84,7 +84,7 @@ Finally, for each series of same exposure and filter for each object, the auxili
 ## Some things to know
 - As mentioned earlier, the original files in the `DARK`, `FLAT` and `ORIGINAL` folders are not used during the reduction process. Only their copies in the `ar_*` working folders are used.
 - In copying the original files during the setup process, `astro_reduce` in effect backs up your data.
-- `astro_reduce` will deduce the object captured in a given field from the `OBJECT` keyword entry in the file's header. In the reduction, all files of a same object, filter and exposure time are realigned and reduced together. Therefore, in order to keep different series of images of a same object separate, it is recommended to append a tag to the object name in acquiring the images of the series. For example NGC4993-1, NGC4993-2, etc.
-- During the reduction, the headers of synthetic images are filled in with the correct `OBJECT`, `FILTER`, `EXPOSURE`, `EXPTIME` and `IMAGETYP` keyword values. The other keyword values (such as the time of acquisition) are inherited from the parent images (raw darks and flats for master dark and master transmission images, raw object images for final reduced object fields).
+- `astro_reduce` will deduce the object captured in a given field from the `OBJECT` keyword entry in the file's header. In the reduction, all files of a same object, filter and exposure time are reduced and realigned together. Therefore, in order to keep different series of images of a same object separate, it is recommended to append a tag to the object name in acquiring the images of the series. For example NGC4993-1, NGC4993-2, etc.
+- During the reduction, the headers of synthetic images are filled in with the correct `OBJECT`, `FILTER`, `EXPOSURE`, `EXPTIME` and `IMAGETYP` keyword values. The other keyword values (such as the time of acquisition) are inherited from the parent images (raw darks and flats for master dark and master transmission images; raw object images for final reduced object fields).
 - `fit` and other derivatives can be used as extensions for the FITS files.
 - Remaining hot pixels in the reduced images can be the result of insufficient dithering.
