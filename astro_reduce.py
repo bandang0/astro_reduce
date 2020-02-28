@@ -454,8 +454,8 @@ def cli(setup, interpolate, verbose, tmppng, redpng):
         fits.writeto(nname, mtrans_data, mflat_header, overwrite=True)
         fits.setval(nname, 'FILTER', value=filt)
         fits.setval(nname, 'IMAGETYP', value='Light Frame')
-        fits.setval(nname, 'EXPTIME', value='-1', comment=hc)
-        fits.setval(nname, 'EXPOSURE', value='-1', comment=hc)
+        fits.setval(nname, 'EXPTIME', value=-1., comment=hc)
+        fits.setval(nname, 'EXPOSURE', value=-1., comment=hc)
         fits.setval(nname, 'OBJECT', value='FLAT    ')
 
         if verbose:
