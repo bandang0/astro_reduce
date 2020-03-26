@@ -78,6 +78,8 @@ def dark_read_header(fname):
         exp = int(1000 * head['EXPTIME'])
     elif 'EXPOSURE' in head.keys():
         exp = int(1000 * head['EXPOSURE'])
+    elif 'EXP (MS)' in head.keys():
+        exp = int(head['EXP (MS)'])
     else:
         raise IOError('No exposure keyword in header of `{}`.'.format(fname))
     return exp, '{}_{}_{}.fits'.format(di, exp, hsh(fname))
@@ -97,6 +99,8 @@ def flat_read_header(fname):
         exp = int(1000 * head['EXPTIME'])
     elif 'EXPOSURE' in head.keys():
         exp = int(1000 * head['EXPOSURE'])
+    elif 'EXP (MS)' in head.keys():
+        exp = int(head['EXP (MS)'])
     else:
         raise IOError('No exposure keyword in header of `{}`.'.format(fname))
 
@@ -124,6 +128,8 @@ def obj_read_header(fname):
         exp = int(1000 * head['EXPTIME'])
     elif 'EXPOSURE' in head.keys():
         exp = int(1000 * head['EXPOSURE'])
+    elif 'EXP (MS)' in head.keys():
+        exp = int(head['EXP (MS)'])
     else:
         raise IOError('No exposure keyword in header of `{}`.'.format(fname))
 
