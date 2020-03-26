@@ -13,7 +13,6 @@ from hashlib import md5
 import click
 import numpy as np
 from astropy.io import fits
-import scipy
 from scipy.signal import fftconvolve
 from packaging.version import parse
 
@@ -50,7 +49,7 @@ def align_and_median(infiles):
         return fits.getdata(infiles[0])
 
     # Collect arrays and crosscorrelate all (except the first) with the first.
-    images = [fits.getdata(_) for _ in infiles]
+    images = [fits.getdata(_).astype(np.float64) for _ in infiles]
     nX, nY = images[0].shape
     correlations = [fftconvolve(images[0], image[::-1, ::-1], mode='same')
                     for image in images[1:]]
@@ -186,14 +185,6 @@ def cli(setup, interpolate, verbose, tmppng, redpng):
     vii) Generate PNG versions of temporary and reduced images.
 
     '''
-    # Before all things, check version of scipy.
-    if not (parse(scipy.__version__) < parse("1.4.1")):
-        click.echo('E: scipy version {} detected.\n'
-                   'E: This could cause crashes during image reduction.\n'
-                   'E: Please install scipy <= 1.3.3 for astro_reduce to run\n'
-                   'E: correctly.'.format(scipy.__version__))
-        exit(1)
-
     # Initialize configuration file name.
     conf_file_name = '{}.json'.format(getcwd().split("/")[-1])
 

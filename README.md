@@ -27,8 +27,6 @@ Alternatively, use the `setup.py` file in the project directory with `python3 se
 
 `astro_reduce` depends on the `click`, `astropy`, `numpy`, `scipy`, `packaging` and `matplotlib` Python packages, which are all available through the PyPI. The `matplotlib` package in only necessary when using the `--tmppng` and `redpng` options; see the _Options_ paragraph below for more details.
 
-__Note:__ It is found that the realignment step of `astro_reduce`'s reduction crashes when run with versions of `scipy` as of 1.4.1. Therefore, it is recommended to use `astro_reduce` with `scipy < 1.4.1`. This is of course taken care of if `astro_reduce` was installed through the PyPI.
-
 ## Usage
 When used for the first time in a directory, or when the data has been modified since the last use of `astro_reduce`, the program should be invoked with the `--setup` option:
 
