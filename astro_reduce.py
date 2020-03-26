@@ -381,11 +381,13 @@ def cli(setup, interpolate, verbose, tmppng, redpng):
         exit(1)
 
     if len(available_exposures) == 1:
-        # If there's only one, a = (only_dark) / (its exposure), b = 0
+        # If there's only one available exosure time, consider that the darks
+        # are dominated by the bias, which is likely. In this case:
+        # a = 0, b = only_dark
         only_exp = available_exposures[0]
         only_mdark = fits.getdata('{}/mdark_{}.fits'.format(TMP, only_exp))
-        a = only_mdark / float(only_exp)
-        b = np.zeros_like(only_mdark)
+        a = np.zeros_like(only_mdark)
+        b = only_mdark
     else:
         # If not, if you want to fit y = a * x + b,
         # then the LS solution is:
