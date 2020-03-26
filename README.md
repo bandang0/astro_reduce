@@ -15,7 +15,7 @@ When launched, `astro_reduce` will copy all data files to working folders (there
 
 After running, the final reduced images can be found in the `reduced/` folder. The reduction process and the nomenclature for the naming of the files in the `tmp/` and `reduced/` folders are given in the _Reduction method_ paragraph below.
 
-__Note:__ It is highly recommended to inspect the intermediate images produced by `astro_reduce` before considering the final reduced images.
+__Note:__ It is highly recommended to inspect the intermediate images produced by `astro_reduce` before considering the final reduced images. Also, we highly recommend you inspect your raw images and eliminate any bad ones before launching the reduction.
 
 ## Installing
 The `astro_reduce` program can be installed from the PyPI under the name `astro-reduce`. This package provides the command with all options.
