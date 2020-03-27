@@ -9,6 +9,8 @@ from json import loads, dump, decoder
 from collections import defaultdict
 from re import compile, sub
 from hashlib import md5
+from time import time
+from datetime import timedelta
 
 import click
 import numpy as np
@@ -214,8 +216,9 @@ def cli(setup, interpolate, verbose, tmppng, redpng):
     vii) Generate PNG versions of temporary and reduced images.
 
     '''
-    # Initialize configuration file name.
+    # Initialize configuration file name and timer.
     conf_file_name = '{}.json'.format(getcwd().split("/")[-1])
+    t0 = time()
 
     # If setup option is on, set up the directory for reduction.
     if setup:
@@ -568,5 +571,7 @@ def cli(setup, interpolate, verbose, tmppng, redpng):
             write_png(ffile, plt)
         click.echo('Done.')
 
-    click.echo('All done.')
+    # Report execution time.
+    t1 = time()
+    click.echo('All done. ({})'.format(timedelta(seconds=int(t1 - t0))))
     # ALL DONE.
