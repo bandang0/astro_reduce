@@ -66,6 +66,14 @@ def align_and_median(infiles):
     deltas = [(ind[0] - int(nX / 2), ind[1] - int(nY / 2))
               for ind in shift_indices]
 
+    # Warn for ghost images if realignment requires shifting by more than
+    # a quarter-field.
+    if (abs(max(deltas, key=lambda x: abs(x[0]))[0]) > nX / 4
+        or abs(max(deltas, key=lambda x: abs(x[1]))[1]) > nY / 4):
+        pieces = basename(infiles[0]).split('_')
+        click.echo('W: In {}:{}:{}, shifting over a quarter-field. '
+                   'Beware of ghosts!'.format(pieces[0], pieces[1], pieces[2]))
+
     # Roll the images to realign them and return their median.
     realigned_images = [np.roll(image, deltas[i], axis=(0, 1))
                         for (i, image) in enumerate(images[1:])]
@@ -527,7 +535,7 @@ def cli(setup, interpolate, verbose, tmppng, redpng):
             # e.g., the first name in the list.)
             f, e = fname_bits(names_per_tag[tag][0])
             if verbose:
-                click.echo('      {}/{}... '.format(f, e), nl=False)
+                click.echo('      {}:{}... '.format(f, e))
             # Calculate aligned and medianed image
             # from all images with same tag.
             aux_files = glob('{}/{}_{}_{}_*_{}.fits'.format(TMP, obj, f, e,AUX))
@@ -544,7 +552,8 @@ def cli(setup, interpolate, verbose, tmppng, redpng):
             fits.setval(nname, 'EXPOSURE', value=float(e) / 1000., comment=hc)
             fits.setval(nname, 'OBJECT', value=obj)
             if verbose:
-                click.echo('Done ({} images).'.format(len(aux_files)))
+                click.echo(' ' * (11 + len(f) + len(e))
+                           + 'Done ({} images).'.format(len(aux_files)))
 
     # STEP 5: If options redpng or tmppng are on, write
     # PNG versions of all the tmp and reduced images.
