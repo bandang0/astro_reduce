@@ -12,7 +12,10 @@ from hashlib import md5
 
 import click
 import numpy as np
+import matplotlib.pyplot as plt
+import matplotlib.colors as colors
 from astropy.io import fits
+from astropy.visualization import ImageNormalize, ZScaleInterval
 from scipy.signal import fftconvolve
 
 
@@ -156,13 +159,29 @@ def fname_bits(fname):
 def write_png(fname, plt):
     '''Generate PNG version of image read in a fits file.
 
-    Save the PNG image in same directory as the fits file.
+    Try to use a zscale normalization, and fall back to a classical
+    linear scale between the min and max of 1000 randomly picked pixels of the
+    image. Save the PNG image in same directory as the fits file.
     '''
-    plt.figure(1)
-    plt.imshow(fits.getdata(fname), aspect='auto', origin='lower', cmap='jet')
-    plt.colorbar()
+    image = fits.getdata(fname)
+    norm = ImageNormalize(image, ZScaleInterval())
+    plt.figure(42)
+    plt.imshow(image, origin='lower', norm=norm, cmap='jet')
+    try:
+        # If the zscale algorithm doesn't converge, an UnboundLocalError is
+        # raised by astropy.visualization ...
+        plt.colorbar()
+    except UnboundLocalError:
+        # ... in this case, just pick 1000 random pixels and linearly scale
+        # between them.
+        plt.clf()
+        sample = np.random.choice(image.ravel(), 1000)
+        norm = colors.Normalize(np.min(sample), np.max(sample), clip=True)
+        plt.imshow(image, origin='lower', norm=norm, cmap='jet')
+        plt.colorbar()
+    plt.title(basename(fname).split(".fit")[0])
     plt.savefig('{}.png'.format(fname.split(".fit")[0]), bbox_inches='tight')
-    plt.close(1)
+    plt.close(42)
 
 
 @click.command()
@@ -529,9 +548,6 @@ def cli(setup, interpolate, verbose, tmppng, redpng):
 
     # STEP 5: If options redpng or tmppng are on, write
     # PNG versions of all the tmp and reduced images.
-    if redpng or tmppng:
-        import matplotlib.pyplot as plt
-
     if redpng:
         click.echo('Writing PNG versions of reduced images... ', nl=False)
         for ffile in glob('{}/*.fits'.format(RED)):

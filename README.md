@@ -25,7 +25,7 @@ Alternatively, use the `setup.py` file in the project directory with `python3 se
 ### Dependencies
 `astro_reduce` is written in Python 3.
 
-`astro_reduce` depends on the `click`, `astropy`, `numpy`, `scipy`, `packaging` and `matplotlib` Python packages, which are all available through the PyPI. The `matplotlib` package in only necessary when using the `--tmppng` and `redpng` options; see the _Options_ paragraph below for more details.
+`astro_reduce` depends on the `click`, `astropy`, `numpy`, `scipy`, `packaging` and `matplotlib` Python packages, which are all available through the PyPI.
 
 ## Usage
 When used for the first time in a directory, or when the data has been modified since the last use of `astro_reduce`, the program should be invoked with the `--setup` option:
