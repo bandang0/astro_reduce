@@ -57,19 +57,16 @@ def align_and_median(infiles):
                     for image in images[1:]]
 
     # For each image determine the coordinate of maximum cross-correlation.
-    shift_indices = [
-        np.unravel_index(
-            np.argmax(
-                corr_array,
-                axis=None),
-            corr_array.shape) for corr_array in correlations]
+    shift_indices = [np.unravel_index(np.argmax(corr_array, axis=None),
+                                      corr_array.shape)
+                     for corr_array in correlations]
     deltas = [(ind[0] - int(nX / 2), ind[1] - int(nY / 2))
               for ind in shift_indices]
 
     # Warn for ghost images if realignment requires shifting by more than
     # a quarter-field.
     if (abs(max(deltas, key=lambda x: abs(x[0]))[0]) > nX / 4
-        or abs(max(deltas, key=lambda x: abs(x[1]))[1]) > nY / 4):
+       or abs(max(deltas, key=lambda x: abs(x[1]))[1]) > nY / 4):
         pieces = basename(infiles[0]).split('_')
         click.echo('W: In {}:{}:{}, shifting over a quarter-field. '
                    'Beware of ghosts!'.format(pieces[0], pieces[1], pieces[2]))
@@ -96,7 +93,7 @@ def dark_read_header(fname):
 
 
 def flat_read_header(fname):
-    '''Return filter, exposure and standard file name for a flat field image.'''
+    '''Return filter, exposure, standard file name for a flat field image.'''
     head = fits.getheader(fname)
     # Filter.
     if 'FILTER' in head.keys():
@@ -147,7 +144,7 @@ def obj_read_header(fname):
 
 
 def write_conf_file(objects, exposures, filters, conf_file_name):
-    '''Write the configuration file from list of objects, exposures, filters.'''
+    '''Write configuration file from list of objects, exposures, filters.'''
     conf_dic = {'objects': objects,
                 'exposures': exposures,
                 'filters': filters}
@@ -225,7 +222,7 @@ def cli(setup, interpolate, verbose, tmppng, redpng):
         click.echo('Setting up for reduction.')
         # Make sure the user image folders are there:
         if not (exists(UOBJ) and exists(UFLAT) and exists(UDARK)):
-            click.echo('E: Could not find folder `DARK`, `FLAT` or `ORIGINAL`\n'
+            click.echo('E: Did not find folder `DARK`, `FLAT` or `ORIGINAL`\n'
                        'E: containing the raw images to be reduced.\n'
                        'E: Refer to the documentation for details.')
             exit(1)
@@ -278,7 +275,7 @@ def cli(setup, interpolate, verbose, tmppng, redpng):
             click.echo('Done.')
 
         # End up the setup by writing the configuration file.
-        click.echo('Writing configuration data to `{}`.'.format(conf_file_name))
+        click.echo('Writing configuration file `{}`.'.format(conf_file_name))
         write_conf_file(list(set(objects)), list(set(exposures)),
                         list(set(filters)), conf_file_name)
 
@@ -289,7 +286,7 @@ def cli(setup, interpolate, verbose, tmppng, redpng):
             conf_dic = loads(cfile.read())
     except FileNotFoundError:
         click.echo('E: Configuration file `{}` not found.\n'
-                   'E: If this is the first time you run astro_reduce in this\n'
+                   'E: If it is the first time you run astro_reduce in this\n'
                    'E: directory, use the `--setup` option to setup the\n'
                    'E: reduction and generate a configuration file.'
                    ''.format(conf_file_name))
@@ -338,7 +335,7 @@ def cli(setup, interpolate, verbose, tmppng, redpng):
             # If the interpolate option is off and there are some darks
             # missing, exit.
             click.echo('E: Did not find dark field images for {}ms exposure.\n'
-                       'E: If you want to interpolate the missing dark fields\n'
+                       'E: In order to interpolate the missing dark fields\n'
                        'E: from the ones available, rerun using the\n'
                        'E: `--interpolate` option.'.format(key))
             exit(1)
@@ -509,14 +506,14 @@ def cli(setup, interpolate, verbose, tmppng, redpng):
             fits.writeto(nname, aux_data, aux_header, overwrite=True)
             fits.setval(nname, 'FILTER', value=filt)
             fits.setval(nname, 'IMAGETYP', value='Light Frame')
-            fits.setval(nname, 'EXPTIME', value=float(exp) / 1000., comment=hc)
-            fits.setval(nname, 'EXPOSURE', value=float(exp) / 1000., comment=hc)
+            fits.setval(nname, 'EXPTIME', value=float(exp) / 1000, comment=hc)
+            fits.setval(nname, 'EXPOSURE', value=float(exp) / 1000, comment=hc)
             fits.setval(nname, 'OBJECT', value=obj)
         if verbose:
             click.echo('Done.')
 
-    # STEP 4: For all objects realign the aux images and write the median images
-    # of those. You are left with one image per object per filter per exposure.
+    # STEP 4: For all objects realign and median the aux images.
+    # You are left with one image per object per filter per exposure.
     click.echo('Realigning object images.')
     for obj in object_files:
         if verbose:
@@ -538,10 +535,12 @@ def cli(setup, interpolate, verbose, tmppng, redpng):
                 click.echo('      {}:{}... '.format(f, e))
             # Calculate aligned and medianed image
             # from all images with same tag.
-            aux_files = glob('{}/{}_{}_{}_*_{}.fits'.format(TMP, obj, f, e,AUX))
+            aux_files = glob('{}/{}_{}_{}_*_{}.fits'.format(TMP, obj, f,
+                                                            e, AUX))
             reduced_data = align_and_median(aux_files)
-            reduced_header = fits.getheader(
-                                     '{}/{}'.format(OBJ, names_per_tag[tag][0]))
+            reduced_header = fits.getheader('{}/{}'
+                                            ''.format(OBJ,
+                                                      names_per_tag[tag][0]))
 
             # Write fits file and header.
             nname = '{}/{}_{}_{}.fits'.format(RED, obj, f, e)
