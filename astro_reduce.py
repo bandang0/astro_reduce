@@ -14,7 +14,6 @@ import click
 import numpy as np
 from astropy.io import fits
 from scipy.signal import fftconvolve
-from packaging.version import parse
 
 
 # Comment for header keywords.
