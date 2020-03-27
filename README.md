@@ -23,9 +23,9 @@ The `astro_reduce` program can be installed from the PyPI under the name `astro-
 Alternatively, use the `setup.py` file in the project directory with `python3 setup.py install --user` to install the program locally. You should then include `~/.local/bin` (or `~/Library/Python/3.7/bin` for Mac users) to your path in order to invoke `astro_reduce` from the console.
 
 ### Dependencies
-`astro_reduce` is written in Python 3.
+`astro_reduce` is written in Python 3.5.
 
-`astro_reduce` depends on the `click`, `astropy`, `numpy`, `scipy`, `packaging` and `matplotlib` Python packages, which are all available through the PyPI.
+`astro_reduce` depends on the `click`, `astropy`, `numpy`, `scipy` and `matplotlib` Python packages, which are all available through the PyPI.
 
 ## Usage
 When used for the first time in a directory, or when the data has been modified since the last use of `astro_reduce`, the program should be invoked with the `--setup` option:

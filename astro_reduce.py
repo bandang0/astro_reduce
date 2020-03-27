@@ -2,7 +2,7 @@
 
 from sys import exit
 from os.path import basename, exists, getsize
-from os import mkdir, getcwd, listdir
+from os import mkdir, getcwd
 from shutil import copy, rmtree
 from glob import glob
 from json import loads, dump, decoder

@@ -15,8 +15,7 @@ setup(
         "astropy",
         "scipy",
         "numpy",
-        "matplotlib",
-        "packaging"],
+        "matplotlib"],
 
     # Python version
     python_requires=">=3.5",
