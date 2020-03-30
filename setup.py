@@ -7,7 +7,7 @@ with open("README.md", "r") as fh:
 setup(
     # General info
     name="astro_reduce",
-    version="2.2.0",
+    version="2.2.1",
     py_modules=["astro_reduce"],
 
     # Dependencies
@@ -18,7 +18,7 @@ setup(
                       "matplotlib"],
 
     # Python version
-    python_requires=">=3.5",
+    python_requires=">=3.0",
 
     # Main function trigger
     entry_points='''
@@ -36,8 +36,10 @@ setup(
     license="MIT",
     keywords="astronomy reduction images automatic",
     classifiers=[
-        "Programming Language :: Python :: 3",
+        "Environment :: Console",
+        "Programming Language :: Python :: 3.0",
         "License :: OSI Approved :: MIT License",
         "Operating System :: Unix",
+        "Topic :: Scientific/Engineering :: Astronomy"
     ],
 )
