@@ -217,7 +217,7 @@ def cli(setup, interpolate, verbose, tmppng, redpng):
 
     '''
     # Initialize configuration file name and timer.
-    conf_file_name = '{}.json'.format(getcwd().split("/")[-1])
+    conf_file_name = '{}.json'.format(basename(getcwd()))
     t0 = time()
 
     # If setup option is on, set up the directory for reduction.
