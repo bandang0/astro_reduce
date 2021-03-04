@@ -29,11 +29,15 @@ def align_and_median(infiles):
 
     # Warn for ghost images if realignment requires shifting by more than
     # 15% of the field size.
-    if (abs(max(deltas, key=lambda x: abs(x[0]))[0]) > nX * 0.15
-       or abs(max(deltas, key=lambda x: abs(x[1]))[1]) > nY * 0.15):
-        pieces = basename(infiles[0]).split('_')
-        click.echo('W: In {}:{}:{}, shifting by more than 15% of the field. '
-                   'Beware of ghosts!'.format(pieces[0], pieces[1], pieces[2]))
+    x_frac = abs(max(deltas, key=lambda x: abs(x[0]))[0]) / nX
+    y_frac = abs(max(deltas, key=lambda x: abs(x[1]))[1]) / nY
+    t_frac = max(x_frac, y_frac)
+    if t_frac > 0.15:
+        bits = basename(infiles[0]).split('_')
+        click.secho('\nW: In {}:{}:{}, shifting by {}% of the field size.'
+                    '\nW: Beware of ghosts!  '.format(bits[0], bits[1],
+                                                    bits[2], int(100 * t_frac)),
+                    fg='magenta')
 
     # Roll the images to realign them and return their median.
     realigned_images = [np.roll(image, deltas[i], axis=(0, 1))

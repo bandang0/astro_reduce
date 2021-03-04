@@ -78,7 +78,7 @@ An object image of given exposure and filter is reduced by __subtracting__ the c
 ### Realignment and reduction
 Finally, for each series of same exposure and filter for each object, the auxiliary files are realigned through optimization of their __mutual cross-correlations__, and then their pixel-wise __median__ image is calculated. Using the median rather than the mean allows to efficiently remove hot pixels. This will be all the more effective as dithering has been used in acquiring the images of a series.
 
-During the realignment, images are rolled to superpose themselves. Therefore, if the images were too misaligned to begin with, objects that roll beyond the edge can end up in odd places, potentially producing ghost images of objects. During `astro_reduce`'s run, a warning is issued to the user if any image is rolled by more than 15% of the field size during the realignment.
+During the realignment, images are rolled to superimpose themselves. Therefore, if the images were too misaligned to begin with, objects that roll beyond the edge can end up in odd places, potentially producing ghost images of objects. During `astro_reduce`'s run, a warning is issued to the user if any image is rolled by more than 15% of the field size during the realignment. In this case, it may be useful to remove the offending image from the dataset. If there are many such images and they are aligned amongst themselves, it is advised to change their names in order to process them together as a separate batch.
 
 >These realigned images are the final reduced images and can be found in the `reduced/` folder after reduction, with the same names as in the preceding step.
 
