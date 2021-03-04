@@ -117,7 +117,9 @@ def cli(setup, interpolate, verbose, tmppng, redpng):
             click.echo('     Done.')
 
         # End up the setup by writing the configuration file.
-        click.echo('  Writing configuration file `{}`.'.format(conf_file_name))
+        if verbose:
+            click.echo('  Writing configuration file `{}`.'.format(
+                                                                conf_file_name))
         write_conf_file(list(set(objects)), list(set(exposures)),
                         list(set(filters)), conf_file_name)
 
