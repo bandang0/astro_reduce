@@ -43,6 +43,7 @@ If the setup has already been done in the directory by prior use of the `--setup
 `astro_reduce` has been tested on Linux and Mac platforms, and has yet to be tested on Windows.
 
 ### Options
+- `--version          Show the version and exit.`
 - `-s, --setup        Sets up the directory for reduction. Use this option only the first time astro_reduce is run in the directory.`
 - `-i, --interpolate  Interpolate existing dark fields if some are missing.`
 - `-v, --verbose      Enables verbose mode (recommended).`
