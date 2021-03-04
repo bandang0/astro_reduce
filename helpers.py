@@ -154,6 +154,6 @@ def write_png(fname, plt):
         norm = colors.Normalize(np.min(sample), np.max(sample), clip=True)
         plt.imshow(image, norm=norm, cmap='jet')
         plt.colorbar()
-    plt.title(basename(fname).split(".fit")[0])
-    plt.savefig('{}.png'.format(fname.split(".fit")[0]), bbox_inches='tight')
+    plt.title(basename(fname).split('.fit')[0])
+    plt.savefig('{}.png'.format(fname.split('.fit')[0]), bbox_inches='tight')
     plt.close(42)

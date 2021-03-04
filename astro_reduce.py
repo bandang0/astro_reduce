@@ -350,7 +350,7 @@ def cli(setup, interpolate, verbose, tmppng, redpng):
             aux_header = fits.getheader(fname)
 
             # Write fits file and header.
-            nname = '{}/{}_{}.fits'.format(TMP, bfname.split(".fit")[0], AUX)
+            nname = '{}/{}_{}.fits'.format(TMP, bfname.split('.fit')[0], AUX)
             fits.writeto(nname, aux_data, aux_header, overwrite=True)
             fits.setval(nname, 'FILTER', value=filt)
             fits.setval(nname, 'IMAGETYP', value='Light Frame')
