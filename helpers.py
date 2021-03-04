@@ -5,6 +5,7 @@ from json import dump
 from os.path import basename
 from re import sub
 
+import click
 import matplotlib.colors as colors
 import numpy as np
 from astropy.io import fits
@@ -74,12 +75,24 @@ def flat_read_header(fname):
 def obj_read_header(fname):
     '''Return object, filter, exposure and standard file name for object image.
     '''
+    # Add flag to only warn once for empty object names.
+    if 'warn_flag' not in obj_read_header.__dict__:
+        obj_read_header.warn_flag = True
+
+    # Retrieve object image header.
     head = fits.getheader(fname)
+
     # Object.
     if 'OBJECT' in head.keys():
         obj = sub('[ _]', '-', head['OBJECT'])
     else:
         raise IOError('No object keyword in header of `{}`.'.format(fname))
+
+    # Warn for empty object name.
+    if obj == '' and obj_read_header.warn_flag:
+        click.secho('\nW: The object keyword in file `{}` and similar is empty.'
+                    '\nW: Undefined behavior.'.format(fname), fg='magenta')
+        obj_read_header.warn_flag = False
 
     # Filter.
     if 'FILTER' in head.keys():

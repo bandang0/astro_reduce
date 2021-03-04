@@ -87,26 +87,26 @@ def cli(setup, interpolate, verbose, tmppng, redpng):
         # astro_reduce working directories. This way the images are backed-up
         # at the same time.
         if verbose:
-            click.secho('  Copying dark field images... ', nl=False)
+            click.secho('  Copying dark field images...', nl=False)
         for file in glob('{}/*.fit*'.format(UDARK)):
             exp, fn = dark_read_header(file)
             exposures.append(exp)
             copy(file, '{}/{}'.format(DARK, fn))
         if verbose:
-            click.secho('Done.')
+            click.secho('     Done.')
 
         if verbose:
-            click.echo('  Copying flat field images... ', nl=False)
+            click.echo('  Copying flat field images...', nl=False)
         for file in glob('{}/*.fit*'.format(UFLAT)):
             fil, exp, fn = flat_read_header(file)
             exposures.append(exp)
             filters.append(fil)
             copy(file, '{}/{}'.format(FLAT, fn))
         if verbose:
-            click.echo('Done.')
+            click.echo('     Done.')
 
         if verbose:
-            click.echo('  Copying object images... ', nl=False)
+            click.echo('  Copying object images...', nl=False)
         for file in glob('{}/*.fit*'.format(UOBJ)):
             obj, fil, exp, fn = obj_read_header(file)
             objects.append(obj)
@@ -114,7 +114,7 @@ def cli(setup, interpolate, verbose, tmppng, redpng):
             exposures.append(exp)
             copy(file, '{}/{}'.format(OBJ, fn))
         if verbose:
-            click.echo('Done.')
+            click.echo('     Done.')
 
         # End up the setup by writing the configuration file.
         click.echo('  Writing configuration file `{}`.'.format(conf_file_name))
