@@ -173,7 +173,7 @@ def write_png(fname, plt):
     image = fits.getdata(fname)
     norm = ImageNormalize(image, ZScaleInterval())
     plt.figure(42)
-    plt.imshow(image, origin='lower', norm=norm, cmap='jet')
+    plt.imshow(image, norm=norm, cmap='jet')
     try:
         # If the zscale algorithm doesn't converge, an UnboundLocalError is
         # raised by astropy.visualization ...
@@ -184,7 +184,7 @@ def write_png(fname, plt):
         plt.clf()
         sample = np.random.choice(image.ravel(), 1000)
         norm = colors.Normalize(np.min(sample), np.max(sample), clip=True)
-        plt.imshow(image, origin='lower', norm=norm, cmap='jet')
+        plt.imshow(image, norm=norm, cmap='jet')
         plt.colorbar()
     plt.title(basename(fname).split(".fit")[0])
     plt.savefig('{}.png'.format(fname.split(".fit")[0]), bbox_inches='tight')
