@@ -192,6 +192,7 @@ def write_png(fname, plt):
 
 
 @click.command()
+@click.version_option()
 @click.option('--setup', '-s', is_flag=True,
               help='Sets up the directory for reduction. Use this option only '
               'the first time astro_reduce is run in the directory.')
