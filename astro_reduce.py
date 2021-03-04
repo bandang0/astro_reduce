@@ -66,11 +66,11 @@ def align_and_median(infiles):
               for ind in shift_indices]
 
     # Warn for ghost images if realignment requires shifting by more than
-    # a quarter-field.
-    if (abs(max(deltas, key=lambda x: abs(x[0]))[0]) > nX / 4
-       or abs(max(deltas, key=lambda x: abs(x[1]))[1]) > nY / 4):
+    # 15% of the field size.
+    if (abs(max(deltas, key=lambda x: abs(x[0]))[0]) > nX * 0.15
+       or abs(max(deltas, key=lambda x: abs(x[1]))[1]) > nY * 0.15):
         pieces = basename(infiles[0]).split('_')
-        click.echo('W: In {}:{}:{}, shifting over a quarter-field. '
+        click.echo('W: In {}:{}:{}, shifting by more than 15% of the field. '
                    'Beware of ghosts!'.format(pieces[0], pieces[1], pieces[2]))
 
     # Roll the images to realign them and return their median.
