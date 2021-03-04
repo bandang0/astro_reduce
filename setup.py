@@ -1,5 +1,7 @@
 '''Setup script for astro_reduce.'''
+
 from setuptools import setup
+
 
 with open("README.md", "r") as fh:
     long_description = fh.read()
@@ -7,8 +9,8 @@ with open("README.md", "r") as fh:
 setup(
     # General info
     name="astro_reduce",
-    version="2.2.1",
-    py_modules=["astro_reduce"],
+    version="3.0.0",
+    py_modules=["astro_reduce", "helpers", "cosmetic", "astrometry"],
 
     # Dependencies
     install_requires=["click",

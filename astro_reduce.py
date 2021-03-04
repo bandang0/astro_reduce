@@ -1,194 +1,23 @@
 '''astro_reduce -- A Simple CCD Images Reducer for the Paris Observatory.'''
 
-from sys import exit
+
+from collections import defaultdict
+from datetime import timedelta
+from glob import glob
+from json import loads, decoder
 from os.path import basename, exists, getsize
 from os import mkdir, getcwd
-from shutil import copy, rmtree
-from glob import glob
-from json import loads, dump, decoder
-from collections import defaultdict
 from re import compile, sub
-from hashlib import md5
+from shutil import copy, rmtree
+from sys import exit
 from time import time
-from datetime import timedelta
 
 import click
 import numpy as np
-import matplotlib.pyplot as plt
-import matplotlib.colors as colors
-from astropy.io import fits
-from astropy.visualization import ImageNormalize, ZScaleInterval
-from scipy.signal import fftconvolve
+from matplotlib import pyplot as plt
 
-
-# Comment for header keywords.
-hc = 'Exposure time in seconds'
-
-# Paths and extensions.
-# User image directories.
-UDARK = 'DARK'
-UFLAT = 'FLAT'
-UOBJ = 'ORIGINAL'
-
-# Astro-reduce working directories.
-OBJ = 'ar_objects'
-DARK = 'ar_darks'
-FLAT = 'ar_flats'
-TMP = 'tmp'
-
-# File names and extensions.
-di = 'dark'
-fi = 'flat'
-RED = 'reduced'
-AUX = 'aux'
-
-# Simple hashing function for file names.
-hsh = lambda x: md5(x.encode('utf-8')).hexdigest()
-
-
-def align_and_median(infiles):
-    '''Read fits data from list of files, return aligned and medianed version.
-    '''
-    if len(infiles) == 1:
-        return fits.getdata(infiles[0])
-
-    # Collect arrays and crosscorrelate all (except the first) with the first.
-    images = [fits.getdata(_).astype(np.float64) for _ in infiles]
-    nX, nY = images[0].shape
-    correlations = [fftconvolve(images[0], image[::-1, ::-1], mode='same')
-                    for image in images[1:]]
-
-    # For each image determine the coordinate of maximum cross-correlation.
-    shift_indices = [np.unravel_index(np.argmax(corr_array, axis=None),
-                                      corr_array.shape)
-                     for corr_array in correlations]
-    deltas = [(ind[0] - int(nX / 2), ind[1] - int(nY / 2))
-              for ind in shift_indices]
-
-    # Warn for ghost images if realignment requires shifting by more than
-    # 15% of the field size.
-    if (abs(max(deltas, key=lambda x: abs(x[0]))[0]) > nX * 0.15
-       or abs(max(deltas, key=lambda x: abs(x[1]))[1]) > nY * 0.15):
-        pieces = basename(infiles[0]).split('_')
-        click.echo('W: In {}:{}:{}, shifting by more than 15% of the field. '
-                   'Beware of ghosts!'.format(pieces[0], pieces[1], pieces[2]))
-
-    # Roll the images to realign them and return their median.
-    realigned_images = [np.roll(image, deltas[i], axis=(0, 1))
-                        for (i, image) in enumerate(images[1:])]
-    realigned_images.append(images[0])
-    return np.median(realigned_images, axis=0)
-
-
-def dark_read_header(fname):
-    '''Return exposure and standard file name for a dark field image.'''
-    head = fits.getheader(fname)
-    if 'EXPTIME' in head.keys():
-        exp = int(1000 * head['EXPTIME'])
-    elif 'EXPOSURE' in head.keys():
-        exp = int(1000 * head['EXPOSURE'])
-    elif 'EXP (MS)' in head.keys():
-        exp = int(head['EXP (MS)'])
-    else:
-        raise IOError('No exposure keyword in header of `{}`.'.format(fname))
-    return exp, '{}_{}_{}.fits'.format(di, exp, hsh(fname))
-
-
-def flat_read_header(fname):
-    '''Return filter, exposure, standard file name for a flat field image.'''
-    head = fits.getheader(fname)
-    # Filter.
-    if 'FILTER' in head.keys():
-        fil = sub('[- _]', '', head['FILTER'])
-    else:
-        raise IOError('No filter keyword in header of `{}`.'.format(fname))
-
-    # Exposure.
-    if 'EXPTIME' in head.keys():
-        exp = int(1000 * head['EXPTIME'])
-    elif 'EXPOSURE' in head.keys():
-        exp = int(1000 * head['EXPOSURE'])
-    elif 'EXP (MS)' in head.keys():
-        exp = int(head['EXP (MS)'])
-    else:
-        raise IOError('No exposure keyword in header of `{}`.'.format(fname))
-
-    return fil, exp, '{}_{}_{}_{}.fits'.format(fi, fil, exp, hsh(fname))
-
-
-def obj_read_header(fname):
-    '''Return object, filter, exposure and standard file name for object image.
-    '''
-    head = fits.getheader(fname)
-    # Object.
-    if 'OBJECT' in head.keys():
-        obj = sub('[ _]', '-', head['OBJECT'])
-    else:
-        raise IOError('No object keyword in header of `{}`.'.format(fname))
-
-    # Filter.
-    if 'FILTER' in head.keys():
-        fil = sub('[- _]', '', head['FILTER'])
-    else:
-        raise IOError('No filter keyword in header of `{}`.'.format(fname))
-
-    # Exposure.
-    if 'EXPTIME' in head.keys():
-        exp = int(1000 * head['EXPTIME'])
-    elif 'EXPOSURE' in head.keys():
-        exp = int(1000 * head['EXPOSURE'])
-    elif 'EXP (MS)' in head.keys():
-        exp = int(head['EXP (MS)'])
-    else:
-        raise IOError('No exposure keyword in header of `{}`.'.format(fname))
-
-    return obj, fil, exp, '{}_{}_{}_{}.fits'.format(obj, fil, exp, hsh(fname))
-
-
-def write_conf_file(objects, exposures, filters, conf_file_name):
-    '''Write configuration file from list of objects, exposures, filters.'''
-    conf_dic = {'objects': objects,
-                'exposures': exposures,
-                'filters': filters}
-    with open(conf_file_name, 'w') as cdfile:
-        dump(conf_dic, cdfile, indent=2)
-
-
-def fname_bits(fname):
-    '''Return the filter and exposure from standard file name of an object.
-
-    'NGC1000_V_1000_0.fits' gives ('V', '1000').
-    '''
-    pieces = fname.split('.fit')[0].split('_')
-    return (pieces[-3], pieces[-2])
-
-
-def write_png(fname, plt):
-    '''Generate PNG version of image read in a fits file.
-
-    Try to use a zscale normalization, and fall back to a classical
-    linear scale between the min and max of 1000 randomly picked pixels of the
-    image. Save the PNG image in same directory as the fits file.
-    '''
-    image = fits.getdata(fname)
-    norm = ImageNormalize(image, ZScaleInterval())
-    plt.figure(42)
-    plt.imshow(image, norm=norm, cmap='jet')
-    try:
-        # If the zscale algorithm doesn't converge, an UnboundLocalError is
-        # raised by astropy.visualization ...
-        plt.colorbar()
-    except UnboundLocalError:
-        # ... in this case, just pick 1000 random pixels and linearly scale
-        # between them.
-        plt.clf()
-        sample = np.random.choice(image.ravel(), 1000)
-        norm = colors.Normalize(np.min(sample), np.max(sample), clip=True)
-        plt.imshow(image, norm=norm, cmap='jet')
-        plt.colorbar()
-    plt.title(basename(fname).split(".fit")[0])
-    plt.savefig('{}.png'.format(fname.split(".fit")[0]), bbox_inches='tight')
-    plt.close(42)
+from cosmetic import align_and_median
+from helpers import *
 
 
 @click.command()
