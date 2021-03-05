@@ -11,7 +11,7 @@ To operate, `astro_reduce` is to be launched from a directory containing three f
 
 All files must be in FITS format, with correct filter, exposure time and object header keywords wherever relevant.
 
-When launched, `astro_reduce` will copy all data files to working folders (thereby backing up the original data), and apply the standard astronomical CCD image reduction process. On the way, intermediate images such as master dark fields or non-realigned object fields are safe-kept in the `tmp/` folder.
+When launched for the first time in a directory, use the `--setup` option. This will copy all data files to working folders (thereby backing up the original data). Then, run `astro_reduce` again without the `--setup` option to run the reduction. This applies the standard astronomical CCD image reduction process. On the way, intermediate images such as master dark fields or non-realigned object fields are safe-kept in the `tmp/` folder.
 
 After running, the final reduced images can be found in the `reduced/` folder. The reduction process and the nomenclature for the naming of the files in the `tmp/` and `reduced/` folders are given in the _Reduction method_ paragraph below.
 
@@ -30,11 +30,13 @@ Alternatively, use the `setup.py` file in the project directory with `python3 se
 ## Usage
 When used for the first time in a directory, or when the data has been modified since the last use of `astro_reduce`, the program should be invoked with the `--setup` option:
 
-`astro_reduce --setup [OPTIONS]`
+`astro_reduce --setup`
 
 This will setup the reduction by copying all the raw data to `astro_reduce`'s working folders whilst changing the file names to standardized formats. Also, during this phase, a configuration file in the JSON format will be written. It summarizes the objects, filters and exposures times present in the original data and is used by `astro_reduce` in the reduction process. This file should be left in the directory for further reference or for later rerunning of the program.
 
 __Note:__ This first setup step is effectively a back-up of your data, as the data left in the `DARK`, `FLAT` and `ORIGINAL` folders are no longer touched during the subsequent reduction process.
+
+If the original data has changed or your are not sure when the `--setup` option was used last, your can remove all `astro_reduce` working data with the `--clear` option.
 
 If the setup has already been done in the directory by prior use of the `--setup` option, `astro_reduce` should be used without this option:
 
@@ -44,7 +46,8 @@ If the setup has already been done in the directory by prior use of the `--setup
 
 ### Options
 - `--version          Show the version and exit.`
-- `-s, --setup        Sets up the directory for reduction. Use this option only the first time astro_reduce is run in the directory.`
+- `-s, --setup        Set up the directory for reduction. Use this option the first time astro_reduce is run in the directory or after the --clear option was used.`
+- `-c, --clear        Remove all astro_reduce-related files and folders in current directory and exit.`
 - `-i, --interpolate  Interpolate existing dark fields if some are missing.`
 - `-v, --verbose      Enables verbose mode (recommended).`
 - `-t, --tmppng       Write PNG format of intermediary images after reduction.`
