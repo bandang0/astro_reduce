@@ -65,6 +65,8 @@ def cli(setup, clear, interpolate, verbose, tmppng, redpng):
                 '    Software is copyright 2018-2021 R. Duque.\n\n',
                 fg='cyan', bold=True)
     click.secho('Currently working in directory `{}`.'.format(cwd), fg='green')
+    click.secho('Options: {}.'.format(', '.join(filter(eval, opt_list))),
+                fg='green')
 
     # Initialize configuration file name and timer.
     conf_file_name = '{}.json'.format(cwd)

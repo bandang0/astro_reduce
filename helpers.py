@@ -12,6 +12,9 @@ from astropy.io import fits
 from astropy.visualization import ImageNormalize, ZScaleInterval
 
 
+# List of all options:
+opt_list = ['setup', 'clear', 'interpolate', 'verbose', 'tmppng', 'redpng']
+
 # Comment for header keywords.
 hc = 'Exposure time in seconds'
 

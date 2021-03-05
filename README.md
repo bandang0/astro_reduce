@@ -30,13 +30,13 @@ Alternatively, use the `setup.py` file in the project directory with `python3 se
 ## Usage
 When used for the first time in a directory, or when the data has been modified since the last use of `astro_reduce`, the program should be invoked with the `--setup` option:
 
-`astro_reduce --setup`
+`astro_reduce --setup [--verbose]`
 
 This will setup the reduction by copying all the raw data to `astro_reduce`'s working folders whilst changing the file names to standardized formats. Also, during this phase, a configuration file in the JSON format will be written. It summarizes the objects, filters and exposures times present in the original data and is used by `astro_reduce` in the reduction process. This file should be left in the directory for further reference or for later rerunning of the program.
 
 __Note:__ This first setup step is effectively a back-up of your data, as the data left in the `DARK`, `FLAT` and `ORIGINAL` folders are no longer touched during the subsequent reduction process.
 
-If the original data has changed or your are not sure when the `--setup` option was used last, your can remove all `astro_reduce` working data with the `--clear` option.
+If the original data has changed or your are not sure when the `--setup` option was used last, you can remove all `astro_reduce` working data with the `--clear` option.
 
 If the setup has already been done in the directory by prior use of the `--setup` option, `astro_reduce` should be used without this option:
 
