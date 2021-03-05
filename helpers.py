@@ -12,11 +12,12 @@ from astropy.io import fits
 from astropy.visualization import ImageNormalize, ZScaleInterval
 
 
-# List of all options:
-opt_list = ['setup', 'clear', 'interpolate', 'verbose', 'tmppng', 'redpng']
+# List of all options.
+OPT_LIST = ['setup', 'clear', 'interpolate', 'verbose', 'tmppng', 'redpng',
+            'sex', 'psfex', 'sexagain']
 
 # Comment for header keywords.
-hc = 'Exposure time in seconds'
+HC = 'Exposure time in seconds'
 
 # Paths and extensions.
 # User image directories.
@@ -31,10 +32,36 @@ FLAT = 'ar_flats'
 TMP = 'tmp'
 
 # File names and extensions.
-di = 'dark'
-fi = 'flat'
+DI = 'dark'
+FI = 'flat'
 RED = 'reduced'
 AUX = 'aux'
+
+# Astromatic result directories.
+SEX_RES = 'SEXRES'
+PSFEX_RES = 'PSFRES'
+SCAMP_RES = 'SCAMPRES'
+
+# Astromatic configuration files.
+AR = 'astro_reduce'
+DATA = 'data'
+T120_SEX = 't120.sex'
+T120_PARAM = 't120.param'
+T120_PSFEX = 't120.psfex'
+T120_PARAMPSFEX = 't120.parampsfex'
+DEFAULT_CONV = 'default.conv'
+
+# Astromatic command templates.
+SEX_TMP = 'sex {} -c {} -PARAMETERS_NAME {} -FILTER_NAME {} '\
+        + '-CATALOG_NAME {}/{} '\
+        + '-CHECKIMAGE_TYPE BACKGROUND,OBJECTS '\
+        + '-CHECKIMAGE_NAME {}/{},{}/{} -XML_NAME {}/{} '
+PSFEX_TMP = 'psfex -c {} SEXRES/*-c.ldac -XML_NAME PSFRES/{} '\
+    + '-CHECKIMAGE_TYPE CHI,PROTOTYPES,SAMPLES,RESIDUALS,SNAPSHOTS '\
+    + '-CHECKIMAGE_NAME PSFRES/chi,PSFRES/proto,PSFRES/samp,PSFRES/resi,PSFRES/snap '\
+    + '-CHECKPLOT_TYPE FWHM,ELLIPTICITY,COUNTS,COUNT_FRACTION,CHI2,RESIDUALS '\
+    + '-CHECKPLOT_NAME PSFRES/fwhm,PSFRES/ellipticity,PSFRES/counts,PSFRES/countfrac,PSFRES/chi,PSFRES/resi '
+SEXAGAIN_OPT_TMP = '-PSF_NAME PSFRES/{} '
 
 # Simple hashing function for file names.
 hsh = lambda x: md5(x.encode('utf-8')).hexdigest()
@@ -50,7 +77,7 @@ def dark_read_header(fname):
         exp = int(head['EXP (MS)'])
     else:
         raise IOError('No exposure keyword in header of `{}`.'.format(fname))
-    return exp, '{}_{}_{}.fits'.format(di, exp, hsh(fname))
+    return exp, '{}_{}_{}.fits'.format(DI, exp, hsh(fname))
 
 
 def flat_read_header(fname):
@@ -72,7 +99,7 @@ def flat_read_header(fname):
     else:
         raise IOError('No exposure keyword in header of `{}`.'.format(fname))
 
-    return fil, exp, '{}_{}_{}_{}.fits'.format(fi, fil, exp, hsh(fname))
+    return fil, exp, '{}_{}_{}_{}.fits'.format(FI, fil, exp, hsh(fname))
 
 
 def obj_read_header(fname):

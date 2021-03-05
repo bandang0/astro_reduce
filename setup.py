@@ -9,7 +9,7 @@ with open("README.md", "r") as fh:
 setup(
     # General info
     name="astro_reduce",
-    version="3.0.0",
+    version="3.1.0",
     py_modules=["astro_reduce", "helpers", "cosmetic", "astrometry"],
 
     # Dependencies
@@ -27,6 +27,13 @@ setup(
         [console_scripts]
         astro_reduce=astro_reduce:cli
     ''',
+
+    # We have data files packaged, for the astrometry features
+    data_files=[('data', ['data/t120.sex',
+                          'data/t120.param',
+                          'data/t120.psfex',
+                          'data/t120.parampsfex',
+                          'data/default.conv'])],
 
     # Metadata to display on PyPI
     author="Raphaël Duque",

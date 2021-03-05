@@ -6,7 +6,8 @@ from datetime import timedelta
 from glob import glob
 from json import loads, decoder
 from os.path import basename, exists, getsize
-from os import mkdir, getcwd, remove
+from os import mkdir, getcwd, remove, system
+from pkg_resources import resource_filename
 from re import compile, sub
 from shutil import copy, rmtree
 from sys import exit
@@ -37,7 +38,15 @@ from helpers import *
               help='Write PNG format of intermediate images after reduction.')
 @click.option('--redpng', '-r', is_flag=True,
               help='Write PNG format of reduced images after reduction.')
-def cli(setup, clear, interpolate, verbose, tmppng, redpng):
+@click.option('--sex', is_flag=True,
+              help='Run the `sex` astromatic command after reduction.')
+@click.option('--psfex', is_flag=True,
+              help='Run the `psfex` astromatic command after reduction.')
+@click.option('--sexagain', is_flag=True,
+              help='Run the `sex` astromatic command a second time after '
+              'having ran the `psfex` command.')
+def cli(setup, clear, interpolate, verbose, tmppng, redpng,
+        sex, psfex, sexagain):
     '''Main run of astro_reduce:
 
     If --setup option is on: copy all user fits data to files with standard
@@ -56,6 +65,9 @@ def cli(setup, clear, interpolate, verbose, tmppng, redpng):
     If --{tmp,red}png options are on: generate PNG versions of temporary
     and reduced images.
 
+    If --{sex,psfex,sexagain} options are on: run the astromatic suite on the
+    reduced images.
+
     '''
     # Current working directory.
     cwd = basename(getcwd())
@@ -65,7 +77,7 @@ def cli(setup, clear, interpolate, verbose, tmppng, redpng):
                 '    Software is copyright 2018-2021 R. Duque.\n\n',
                 fg='cyan', bold=True)
     click.secho('Currently working in directory `{}`.'.format(cwd), fg='green')
-    click.secho('Options: {}.'.format(', '.join(filter(eval, opt_list))),
+    click.secho('Options: {}.'.format(', '.join(filter(eval, OPT_LIST))),
                 fg='green')
 
     # Initialize configuration file name and timer.
@@ -78,7 +90,7 @@ def cli(setup, clear, interpolate, verbose, tmppng, redpng):
                     fg='green', nl=False)
         if exists(conf_file_name):
             remove(conf_file_name)
-        for folder in [OBJ, FLAT, DARK, RED, TMP]:
+        for folder in [OBJ, FLAT, DARK, RED, TMP, SEX_RES, PSF_RES, SCAMP_RES]:
             if exists(folder):
                 rmtree(folder, ignore_errors=True)
         click.secho(' Done.', fg='green')
@@ -170,10 +182,10 @@ def cli(setup, clear, interpolate, verbose, tmppng, redpng):
         [(obj, glob('{}/{}_*.fit*'.format(OBJ, obj)))
             for obj in conf_dic['objects']])
     dark_files = dict(
-        [(exp, glob('{}/{}_{}_*.fit*'.format(DARK, di, exp)))
+        [(exp, glob('{}/{}_{}_*.fit*'.format(DARK, DI, exp)))
             for exp in conf_dic['exposures']])
     flat_files = dict(
-        [(filt, glob('{}/{}_{}_*.fit*'.format(FLAT, fi, filt)))
+        [(filt, glob('{}/{}_{}_*.fit*'.format(FLAT, FI, filt)))
             for filt in conf_dic['filters']])
 
     # Check working directories are still there.
@@ -263,8 +275,8 @@ def cli(setup, clear, interpolate, verbose, tmppng, redpng):
         fits.writeto(nname, mdark_data, mdark_header, overwrite=True)
         fits.setval(nname, 'FILTER', value='        ')
         fits.setval(nname, 'IMAGETYP', value='Dark    ')
-        fits.setval(nname, 'EXPTIME', value=float(exp / 1000.), comment=hc)
-        fits.setval(nname, 'EXPOSURE', value=float(exp / 1000.), comment=hc)
+        fits.setval(nname, 'EXPTIME', value=float(exp / 1000.), comment=HC)
+        fits.setval(nname, 'EXPOSURE', value=float(exp / 1000.), comment=HC)
         fits.setval(nname, 'OBJECT', value='DARK    ')
 
         if verbose:
@@ -317,8 +329,8 @@ def cli(setup, clear, interpolate, verbose, tmppng, redpng):
         fits.writeto(nname, new_mdark_data, overwrite=True)
         fits.setval(nname, 'FILTER', value='        ')
         fits.setval(nname, 'IMAGETYP', value='Interpolated dark')
-        fits.setval(nname, 'EXPTIME', value=float(exp / 1000.), comment=hc)
-        fits.setval(nname, 'EXPOSURE', value=float(exp / 1000.), comment=hc)
+        fits.setval(nname, 'EXPTIME', value=float(exp / 1000.), comment=HC)
+        fits.setval(nname, 'EXPOSURE', value=float(exp / 1000.), comment=HC)
         fits.setval(nname, 'OBJECT', value='DARK    ')
         if verbose:
             click.echo('Done.')
@@ -347,8 +359,8 @@ def cli(setup, clear, interpolate, verbose, tmppng, redpng):
         fits.writeto(nname, mtrans_data, mflat_header, overwrite=True)
         fits.setval(nname, 'FILTER', value=filt)
         fits.setval(nname, 'IMAGETYP', value='Light Frame')
-        fits.setval(nname, 'EXPTIME', value=-1., comment=hc)
-        fits.setval(nname, 'EXPOSURE', value=-1., comment=hc)
+        fits.setval(nname, 'EXPTIME', value=-1., comment=HC)
+        fits.setval(nname, 'EXPOSURE', value=-1., comment=HC)
         fits.setval(nname, 'OBJECT', value='FLAT    ')
 
         if verbose:
@@ -377,8 +389,8 @@ def cli(setup, clear, interpolate, verbose, tmppng, redpng):
             fits.writeto(nname, aux_data, aux_header, overwrite=True)
             fits.setval(nname, 'FILTER', value=filt)
             fits.setval(nname, 'IMAGETYP', value='Light Frame')
-            fits.setval(nname, 'EXPTIME', value=float(exp) / 1000, comment=hc)
-            fits.setval(nname, 'EXPOSURE', value=float(exp) / 1000, comment=hc)
+            fits.setval(nname, 'EXPTIME', value=float(exp) / 1000, comment=HC)
+            fits.setval(nname, 'EXPOSURE', value=float(exp) / 1000, comment=HC)
             fits.setval(nname, 'OBJECT', value=obj)
         if verbose:
             click.echo('Done.')
@@ -419,8 +431,8 @@ def cli(setup, clear, interpolate, verbose, tmppng, redpng):
             fits.writeto(nname, reduced_data, reduced_header, overwrite=True)
             fits.setval(nname, 'FILTER', value=f)
             fits.setval(nname, 'IMAGETYP', value='Light Frame')
-            fits.setval(nname, 'EXPTIME', value=float(e) / 1000., comment=hc)
-            fits.setval(nname, 'EXPOSURE', value=float(e) / 1000., comment=hc)
+            fits.setval(nname, 'EXPTIME', value=float(e) / 1000., comment=HC)
+            fits.setval(nname, 'EXPOSURE', value=float(e) / 1000., comment=HC)
             fits.setval(nname, 'OBJECT', value=obj)
             if verbose:
                 click.echo('       Done ({} images).'.format(len(aux_files)))
@@ -440,6 +452,58 @@ def cli(setup, clear, interpolate, verbose, tmppng, redpng):
         for ffile in glob('{}/*.fits'.format(TMP)):
             write_png(ffile, plt)
         click.secho('Done.', fg='green')
+
+    # STEP 6: If options sex, psfex or sexagain are on,
+    # run the astromatic suite.
+    # Sexagain implies sex and psfex.
+    if sexagain:
+        sex = True
+        psfex = True
+    if sex or psfex or sexagain:
+        # Setup for the astrometry: initialize empty result folders
+        for folder in [SEX_RES, PSFEX_RES, SCAMP_RES]:
+            if exists(folder):
+                rmtree(folder, ignore_errors=True)
+            mkdir(folder)
+
+        # Setup for the astrometry: find configuration files in the file system
+        t120_sex = resource_filename(AR, '{}/{}'.format(DATA, T120_SEX))
+        t120_param = resource_filename(AR, '{}/{}'.format(DATA, T120_PARAM))
+        t120_psfex = resource_filename(AR, '{}/{}'.format(DATA, T120_PSFEX))
+        t120_parampsfex = resource_filename(AR, '{}/{}'.format(DATA,
+                                                               T120_PARAMPSFEX))
+        default_conv = resource_filename(AR, '{}/{}'.format(DATA, DEFAULT_CONV))
+
+    # Run sextractor.
+    if sex:
+        for ffile in glob('{}/*.fits'.format(RED)):
+            stem = basename(ffile.split('.fit')[0])
+            sex_cmd = SEX_TMP.format(ffile, t120_sex, t120_param, default_conv,
+                                  SEX_RES, stem + '-c.ldac',
+                                  SEX_RES, stem + '-bckg.fits',
+                                  SEX_RES, stem + '-obj.fits',
+                                  SEX_RES, stem + '-c.xml')
+            system(sex_cmd)
+
+    # Run PSFEx with sextractor-determined sources.
+    if psfex:
+        for ffile in glob('{}/*.fits'.format(RED)):
+            stem = basename(ffile.split('.fit')[0])
+            psfex_cmd = PSFEX_TMP.format(t120_psfex, stem + '-c.xml')
+            system(psfex_cmd)
+
+    # Run sextractor with PSFEx-determined PSF.
+    if sexagain:
+        for ffile in glob('{}/*.fits'.format(RED)):
+            stem = basename(ffile.split('.fit')[0])
+            sexagain_cmd = SEX_TMP.format(ffile, t120_sex, t120_parampsfex,
+                                  default_conv,
+                                  SEX_RES, stem + '-c.ldac',
+                                  SEX_RES, stem + '-bckg.fits',
+                                  SEX_RES, stem + '-obj.fits',
+                                  SEX_RES, stem + '-c.xml')\
+                         + SEXAGAIN_OPT_TMP.format(stem + '-c.psf')
+            system(sexagain_cmd)
 
     # Report execution time.
     t1 = time()
