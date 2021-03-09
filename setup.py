@@ -9,7 +9,7 @@ with open("README.md", "r") as fh:
 setup(
     # General info
     name="astro_reduce",
-    version="3.1.0",
+    version="3.1.0a",
     py_modules=["astro_reduce", "helpers", "cosmetic", "astrometry"],
 
     # Dependencies

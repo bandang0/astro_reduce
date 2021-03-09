@@ -39,12 +39,14 @@ from helpers import *
 @click.option('--redpng', '-r', is_flag=True,
               help='Write PNG format of reduced images after reduction.')
 @click.option('--sex', is_flag=True,
-              help='Run the `sex` astromatic command after reduction.')
+              help='Run the `sex` astromatic command on all reduced images '
+              'after reduction.')
 @click.option('--psfex', is_flag=True,
-              help='Run the `psfex` astromatic command after reduction.')
+              help='Run the `psfex` astromatic command with the '
+              '`sex`-determined sources in all reduced images.')
 @click.option('--sexagain', is_flag=True,
-              help='Run the `sex` astromatic command a second time after '
-              'having ran the `psfex` command.')
+              help='Run the `sex` astromatic command a second time, using the '
+              '`psfex`-determined PSF data.')
 def cli(setup, clear, interpolate, verbose, tmppng, redpng,
         sex, psfex, sexagain):
     '''Main run of astro_reduce:

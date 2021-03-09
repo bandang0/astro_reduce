@@ -2,7 +2,7 @@
 
 ## What does astro_reduce do?
 
-`astro_reduce` reduces raw astronomical CCD images read in FITS format with dark and flat field images. Optionally, it can interpolate missing dark fields from the ones available, and can also convert the intermediate and reduced images to PNG format for easy inspection.
+`astro_reduce` reduces raw astronomical CCD images read in FITS format with dark and flat field images. Optionally, it can interpolate missing dark fields from the ones available, and can also convert the intermediate and reduced images to PNG format for easy inspection. Finally, it can also run the [Astromatic Software Suite](https://www.astromatic.net/) on the images obtained from the reduction. For this, the relevant commands--either `sex` or `psfex` accordingly with the specified options--must be installed on your system. The configuration files for these commands are handled internally by `astro_reduce`, you do not need to provide them.
 
 To operate, `astro_reduce` is to be launched from a directory containing three folders:
 - A `DARK` folder, containing all the dark field images,
@@ -16,6 +16,8 @@ When launched for the first time in a directory, use the `--setup` option. This 
 After running, the final reduced images can be found in the `reduced/` folder. The reduction process and the nomenclature for the naming of the files in the `tmp/` and `reduced/` folders are given in the _Reduction method_ paragraph below.
 
 __Note:__ It is highly recommended to inspect the intermediate images produced by `astro_reduce` before considering the final reduced images. Also, we highly recommend you inspect your raw images and eliminate any bad ones before launching the reduction.
+
+If options to run the Astromatic software were used, the results can be found after running in the `SEXRES` and `PSFRES` folders.
 
 ## Installing
 The `astro_reduce` program can be installed from the PyPI under the name `astro-reduce`. This package provides the command with all options.
@@ -50,8 +52,11 @@ If the setup has already been done in the directory by prior use of the `--setup
 - `-c, --clear        Remove all astro_reduce-related files and folders in current directory and exit.`
 - `-i, --interpolate  Interpolate existing dark fields if some are missing.`
 - `-v, --verbose      Enables verbose mode (recommended).`
-- `-t, --tmppng       Write PNG format of intermediary images after reduction.`
+- `-t, --tmppng       Write PNG format of intermediate images after reduction.`
 - `-r, --redpng       Write PNG format of reduced images after reduction.`
+- `--sex              Run the 'sex' astromatic command on all reduced images after reduction.`
+- `--psfex            Run the 'psfex' astromatic command with the 'sex'-determined sources in all reduced images.`
+- `--sexagain         Run the 'sex' astromatic command a second time, using the 'psfex'-determined PSF data.`
 - `--help             Show this message and exit.`
 
 
