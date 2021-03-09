@@ -455,10 +455,9 @@ def cli(setup, clear, interpolate, verbose, tmppng, redpng,
 
     # STEP 6: If options sex, psfex or sexagain are on,
     # run the astromatic suite.
-    # Sexagain implies sex and psfex.
-    if sexagain:
-        sex = True
-        psfex = True
+    # Sexagain implies psfex and psfex implies sex.
+    psfex = psfex or sexagain
+    sex = sex or psfex
     if sex or psfex or sexagain:
         # Setup for the astrometry: initialize empty result folders
         for folder in [SEX_RES, PSFEX_RES, SCAMP_RES]:
