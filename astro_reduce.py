@@ -90,7 +90,7 @@ def cli(setup, clear, interpolate, verbose, tmppng, redpng,
                     fg='green', nl=False)
         if exists(conf_file_name):
             remove(conf_file_name)
-        for folder in [OBJ, FLAT, DARK, RED, TMP, SEX_RES, PSF_RES, SCAMP_RES]:
+        for folder in [OBJ, FLAT, DARK, RED, TMP, SEX_RES, PSFEX_RES, SCAMP_RES]:
             if exists(folder):
                 rmtree(folder, ignore_errors=True)
         click.secho(' Done.', fg='green')
