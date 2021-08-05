@@ -5,10 +5,10 @@ from collections import defaultdict
 from datetime import timedelta
 from glob import glob
 from json import loads, decoder
-from os.path import basename, exists, getsize
+from os.path import basename, exists, getsize, splitext
 from os import mkdir, getcwd, remove, system
 from pkg_resources import resource_filename
-from re import compile, sub
+from re import compile #, sub
 from shutil import copy, rmtree
 from sys import exit
 from time import time
@@ -16,9 +16,21 @@ from time import time
 import click
 import numpy as np
 from matplotlib import pyplot as plt
+from astropy.io import fits
+from astropy.io.votable import parse
+from astropy.table import Table
 
 from cosmetic import align_and_median
-from helpers import *
+#from helpers import *
+from helpers import write_png, fname_bits,write_conf_file,obj_read_header
+from helpers import obj_correct_header
+from helpers import flat_read_header,dark_read_header
+from helpers import OPT_LIST,HC,UDARK,UFLAT,UOBJ,URED,DARK,FLAT,OBJ,TMP,MASTER
+from helpers import DI,FI,RED,STK,AUX,SEX_RES,PSFEX_RES,SCAMP_RES,AR,DATA
+from helpers import T120_SEX,T120_PARAM,T120_PSFEX,T120_PARAMPSFEX,DEFAULT_CONV
+from helpers import T120_SCAMP,T120_AHEAD
+from helpers import SEX_TMP,PSFEX_TMP,SEXAGAIN_OPT_TMP,SCAMP_TMP
+
 
 
 @click.command()
@@ -47,6 +59,11 @@ from helpers import *
 @click.option('--sexagain', is_flag=True,
               help='Run the `sex` astromatic command a second time, using the '
               '`psfex`-determined PSF data.')
+#@click.option('--scamp', is_flag=True,
+#              help='Run the `scamp` astromatic command on all reduced images '
+#              'after reduction.')
+#@click.option('--nostack', is_flag=True,
+#              help='If True, skip the staking process')
 def cli(setup, clear, interpolate, verbose, tmppng, redpng,
         sex, psfex, sexagain):
     '''Main run of astro_reduce:
@@ -85,6 +102,8 @@ def cli(setup, clear, interpolate, verbose, tmppng, redpng,
     # Initialize configuration file name and timer.
     conf_file_name = '{}.json'.format(cwd)
     t0 = time()
+    # correspondance between original and temporary file
+    u2ar = {}
 
     # If clear option is on, remove all files and folders and exit.
     if clear:
@@ -92,7 +111,7 @@ def cli(setup, clear, interpolate, verbose, tmppng, redpng,
                     fg='green', nl=False)
         if exists(conf_file_name):
             remove(conf_file_name)
-        for folder in [OBJ, FLAT, DARK, RED, TMP, SEX_RES, PSFEX_RES, SCAMP_RES]:
+        for folder in [OBJ, FLAT, DARK, MASTER, RED, STK, TMP, SEX_RES, PSFEX_RES, SCAMP_RES]:
             if exists(folder):
                 rmtree(folder, ignore_errors=True)
         click.secho(' Done.', fg='green')
@@ -112,7 +131,7 @@ def cli(setup, clear, interpolate, verbose, tmppng, redpng,
         objects = list()
         exposures = list()
         filters = list()
-        for folder in [OBJ, DARK, FLAT]:
+        for folder in [OBJ, DARK, FLAT, MASTER]:
             if exists(folder):
                 rmtree(folder, ignore_errors=True)
             mkdir(folder)
@@ -189,7 +208,15 @@ def cli(setup, clear, interpolate, verbose, tmppng, redpng,
     flat_files = dict(
         [(filt, glob('{}/{}_{}_*.fit*'.format(FLAT, FI, filt)))
             for filt in conf_dic['filters']])
-
+    
+    # work out correspondance between original and processed file
+    for file in glob('{}/*.fit*'.format(UOBJ)):
+        obj, fil, exp, fn = obj_read_header(file)
+        nname = '{}'.format(fn.split('.fit')[0])
+#        if verbose:
+#            click.secho(' code: '+nname+' ori: '+basename(file))
+        u2ar[nname] = basename(file)    
+    
     # Check working directories are still there.
     if not (exists(OBJ) and exists(FLAT) and exists(DARK)):
         click.secho('E: Seems like astro_reduce\'s working folders\n'
@@ -253,9 +280,13 @@ def cli(setup, clear, interpolate, verbose, tmppng, redpng,
     if verbose:
         click.secho('Creating folders to hold reduced and intermediate images.',
                     fg='green')
+
     if exists(RED):
         rmtree(RED, ignore_errors=True)
     mkdir(RED)
+    if exists(STK):
+        rmtree(STK, ignore_errors=True)
+    mkdir(STK)
     if exists(TMP):
         rmtree(TMP, ignore_errors=True)
     mkdir(TMP)
@@ -273,14 +304,14 @@ def cli(setup, clear, interpolate, verbose, tmppng, redpng,
         mdark_header = fits.getheader(dark_files[exp][0])
 
         # Write fits file and header.
-        nname = '{}/mdark_{}.fits'.format(TMP, exp)
+        nname = '{}/mdark_{}.fits'.format(MASTER, exp)
         fits.writeto(nname, mdark_data, mdark_header, overwrite=True)
         fits.setval(nname, 'FILTER', value='        ')
         fits.setval(nname, 'IMAGETYP', value='Dark    ')
         fits.setval(nname, 'EXPTIME', value=float(exp / 1000.), comment=HC)
         fits.setval(nname, 'EXPOSURE', value=float(exp / 1000.), comment=HC)
         fits.setval(nname, 'OBJECT', value='DARK    ')
-
+        
         if verbose:
             click.echo('Done ({} images).'.format(len(dark_files[exp])))
 
@@ -299,7 +330,7 @@ def cli(setup, clear, interpolate, verbose, tmppng, redpng,
         # are dominated by the bias, which is likely. In this case:
         # a = 0, b = only_dark
         only_exp = available_exposures[0]
-        only_mdark = fits.getdata('{}/mdark_{}.fits'.format(TMP, only_exp))
+        only_mdark = fits.getdata('{}/mdark_{}.fits'.format(MASTER, only_exp))
         a = np.zeros_like(only_mdark)
         b = only_mdark
     else:
@@ -308,10 +339,10 @@ def cli(setup, clear, interpolate, verbose, tmppng, redpng,
         # a = (<xy> - <x><y>) / (<x ** 2> - <x> ** 2)
         # b = <y> - a * <x>
         mxy = np.mean([float(exp)
-                       * fits.getdata('{}/mdark_{}.fits'.format(TMP, exp))
+                       * fits.getdata('{}/mdark_{}.fits'.format(MASTER, exp))
                        for exp in available_exposures], axis=0)
         mx = np.mean([float(exp) for exp in available_exposures])
-        my = np.mean([fits.getdata('{}/mdark_{}.fits'.format(TMP, exp))
+        my = np.mean([fits.getdata('{}/mdark_{}.fits'.format(MASTER, exp))
                       for exp in available_exposures], axis=0)
         mx2 = np.mean([float(exp) ** 2 for exp in available_exposures])
 
@@ -327,19 +358,20 @@ def cli(setup, clear, interpolate, verbose, tmppng, redpng,
         new_mdark_data = float(exp) * a + b
 
         # Write fits file and header.
-        nname = '{}/mdark_{}.fits'.format(TMP, exp)
+        nname = '{}/mdark_{}.fits'.format(MASTER, exp)
         fits.writeto(nname, new_mdark_data, overwrite=True)
         fits.setval(nname, 'FILTER', value='        ')
         fits.setval(nname, 'IMAGETYP', value='Interpolated dark')
         fits.setval(nname, 'EXPTIME', value=float(exp / 1000.), comment=HC)
         fits.setval(nname, 'EXPOSURE', value=float(exp / 1000.), comment=HC)
         fits.setval(nname, 'OBJECT', value='DARK    ')
+        
         if verbose:
             click.echo('Done.')
 
     # STEP 2: Write master transmission files for each filter:
     # mtrans = median(normalized(flat - dark of same exposure)).
-    click.secho('Calculating master transmission images:', fg='green')
+    click.secho('Calculating master transmission (Flat) images:', fg='green')
     # Handy function to extract exposure from flat file name.
     fexp = lambda fname: fname.split('.fit')[0].split('_')[-2]
     for filt in flat_files:
@@ -350,26 +382,27 @@ def cli(setup, clear, interpolate, verbose, tmppng, redpng,
         normalized_flats = list()
         for fitsfile in flat_files[filt]:
             tmp = fits.getdata(fitsfile) \
-                - fits.getdata('{}/mdark_{}.fits'.format(TMP, fexp(fitsfile)))
+                - fits.getdata('{}/mdark_{}.fits'.format(MASTER, fexp(fitsfile)))
             normalized_flats.append(tmp / tmp.mean(axis=0))
 
         mtrans_data = np.median(normalized_flats, axis=0)
         mflat_header = fits.getheader(flat_files[filt][0])
 
         # Write fits file and header.
-        nname = '{}/mtrans_{}.fits'.format(TMP, filt)
+        nname = '{}/mtrans_{}.fits'.format(MASTER, filt)
         fits.writeto(nname, mtrans_data, mflat_header, overwrite=True)
         fits.setval(nname, 'FILTER', value=filt)
         fits.setval(nname, 'IMAGETYP', value='Light Frame')
         fits.setval(nname, 'EXPTIME', value=-1., comment=HC)
         fits.setval(nname, 'EXPOSURE', value=-1., comment=HC)
         fits.setval(nname, 'OBJECT', value='FLAT    ')
-
+        
         if verbose:
             click.echo('Done ({} images).'.format(len(flat_files[filt])))
 
     # STEP 3: Reduce all the object images with corresponding filter mtrans
     # and exposure mdark.
+    noastro = []
     click.secho('Writing auxiliary object images:', fg='green')
     for obj in object_files:
         if verbose:
@@ -379,12 +412,17 @@ def cli(setup, clear, interpolate, verbose, tmppng, redpng,
             filt, exp = fname_bits(bfname)
 
             # Corresponding darks and flats.
-            mdark_data = fits.getdata('{}/mdark_{}.fits'.format(TMP, exp))
-            mtrans_data = fits.getdata('{}/mtrans_{}.fits'.format(TMP, filt))
+            mdark_data = fits.getdata('{}/mdark_{}.fits'.format(MASTER, exp))
+            mtrans_data = fits.getdata('{}/mtrans_{}.fits'.format(MASTER, filt))
 
             # (Raw - Dark) / Trans.
             aux_data = (fits.getdata(fname) - mdark_data) / mtrans_data
             aux_header = fits.getheader(fname)
+            try:
+                aux_header = obj_correct_header(aux_header)
+            except:
+                click.secho('W: Not enough astrometric info in file '+fname, fg='magenta')
+                noastro.append(fname)
 
             # Write fits file and header.
             nname = '{}/{}_{}.fits'.format(TMP, bfname.split('.fit')[0], AUX)
@@ -394,57 +432,68 @@ def cli(setup, clear, interpolate, verbose, tmppng, redpng,
             fits.setval(nname, 'EXPTIME', value=float(exp) / 1000, comment=HC)
             fits.setval(nname, 'EXPOSURE', value=float(exp) / 1000, comment=HC)
             fits.setval(nname, 'OBJECT', value=obj)
+            
         if verbose:
             click.echo('Done.')
 
     # STEP 4: For all objects realign and median the aux images.
     # You are left with one image per object per filter per exposure.
-    click.secho('Realigning object images:', fg='green')
-    for obj in object_files:
-        if verbose:
-            click.secho('  {}:'.format(obj), fg='blue')
-        # Group all the object files by *tag*, i.e. by filter, exposure.
-        name_tag_hash = [(basename(fname),
-                         '{}'.format(fname_bits(basename(fname))))
-                         for fname in object_files[obj]]
-        names_per_tag = defaultdict(list)
-        for name, tag in name_tag_hash:
-            names_per_tag[tag].append(name)
-
-        # Now you align images which have the same tag.
-        for tag in names_per_tag:
-            # Rebuild filter and exposure from tag (they are those of,
-            # e.g., the first name in the list.)
-            f, e = fname_bits(names_per_tag[tag][0])
+    # TODO: remove the following line and replace by program argument
+    nostack = True
+    stack = not nostack
+    if stack:
+        click.secho('Realigning/Stacking object images:', fg='green')
+        for obj in object_files:
             if verbose:
-                click.echo('    {:23}'.format('{}:{}ms...'.format(f, e)),
-                           nl=False)
-            # Calculate aligned and medianed image
-            # from all images with same tag.
-            aux_files = glob('{}/{}_{}_{}_*_{}.fits'.format(TMP, obj, f,
-                                                            e, AUX))
-            reduced_data = align_and_median(aux_files)
-            reduced_header = fits.getheader('{}/{}'
-                                            ''.format(OBJ,
-                                                      names_per_tag[tag][0]))
-
-            # Write fits file and header.
-            nname = '{}/{}_{}_{}.fits'.format(RED, obj, f, e)
-            fits.writeto(nname, reduced_data, reduced_header, overwrite=True)
-            fits.setval(nname, 'FILTER', value=f)
-            fits.setval(nname, 'IMAGETYP', value='Light Frame')
-            fits.setval(nname, 'EXPTIME', value=float(e) / 1000., comment=HC)
-            fits.setval(nname, 'EXPOSURE', value=float(e) / 1000., comment=HC)
-            fits.setval(nname, 'OBJECT', value=obj)
-            if verbose:
-                click.echo('       Done ({} images).'.format(len(aux_files)))
+                click.secho('  {}:'.format(obj), fg='blue')
+            # Group all the object files by *tag*, i.e. by filter, exposure.
+            name_tag_hash = [(basename(fname),
+                             '{}'.format(fname_bits(basename(fname))))
+                             for fname in object_files[obj]]
+            names_per_tag = defaultdict(list)
+            for name, tag in name_tag_hash:
+                names_per_tag[tag].append(name)
+    
+            # Now you align images which have the same tag.
+            for tag in names_per_tag:
+                # Rebuild filter and exposure from tag (they are those of,
+                # e.g., the first name in the list.)
+                f, e = fname_bits(names_per_tag[tag][0])
+                if verbose:
+                    click.echo('    {:23}'.format('{}:{}ms...'.format(f, e)),
+                               nl=False)
+                # Calculate aligned and medianed image
+                # from all images with same tag.
+                aux_files = glob('{}/{}_{}_{}_*_{}.fits'.format(TMP, obj, f,
+                                                                e, AUX))
+                stacked_data = align_and_median(aux_files)
+                stacked_header = fits.getheader('{}/{}'
+                                                ''.format(OBJ,
+                                                          names_per_tag[tag][0]))
+                try:
+                    stacked_header = obj_correct_header(stacked_header)
+                except:
+                    click.secho('W: Not enough astrometric info in file '+aux_files[0], fg='magenta')            
+                
+                # Write fits file and header.
+                nname = '{}/{}_{}_{}.fits'.format(STK, obj, f, e)
+                fits.writeto(nname, stacked_data, stacked_header, overwrite=True)
+                fits.setval(nname, 'FILTER', value=f)
+                fits.setval(nname, 'IMAGETYP', value='Light Frame')
+                fits.setval(nname, 'EXPTIME', value=float(e) / 1000., comment=HC)
+                fits.setval(nname, 'EXPOSURE', value=float(e) / 1000., comment=HC)
+                fits.setval(nname, 'OBJECT', value=obj)
+                if verbose:
+                    click.echo('       Done ({} images).'.format(len(aux_files)))
 
     # STEP 5: If options redpng or tmppng are on, write
-    # PNG versions of all the tmp and reduced images.
+    # PNG versions of all the tmp and reduced/stacked images.
     if redpng:
-        click.secho('Writing PNG versions of reduced images... ',
+        click.secho('Writing PNG versions of reduced/stacked images... ',
                     fg='green', nl=False)
         for ffile in glob('{}/*.fits'.format(RED)):
+            write_png(ffile, plt)
+        for ffile in glob('{}/*.fits'.format(STK)):
             write_png(ffile, plt)
         click.secho('Done.', fg='green')
 
@@ -460,7 +509,8 @@ def cli(setup, clear, interpolate, verbose, tmppng, redpng,
     # Sexagain implies psfex and psfex implies sex.
     psfex = psfex or sexagain
     sex = sex or psfex
-    if sex or psfex or sexagain:
+    scamp = True # TODO: REMOVE THIS LINE AND PUT IT AS ARGUMENT
+    if sex or psfex or sexagain or scamp:
         # Setup for the astrometry: initialize empty result folders
         for folder in [SEX_RES, PSFEX_RES, SCAMP_RES]:
             if exists(folder):
@@ -474,38 +524,106 @@ def cli(setup, clear, interpolate, verbose, tmppng, redpng,
         t120_parampsfex = resource_filename(AR, '{}/{}'.format(DATA,
                                                                T120_PARAMPSFEX))
         default_conv = resource_filename(AR, '{}/{}'.format(DATA, DEFAULT_CONV))
-
+        t120_scamp = resource_filename(AR, '{}/{}'.format(DATA, T120_SCAMP))
+        t120_ahead = resource_filename(AR, '{}/{}'.format(DATA, T120_AHEAD))
+        
+        # set the directory of images to process astrometry
+        SXD = TMP
+    
+    
     # Run sextractor.
     if sex:
-        for ffile in glob('{}/*.fits'.format(RED)):
+        for ffile in glob('{}/*.fits'.format(SXD)):
+            if ffile in noastro:
+                click.secho('W: No enough astrometry info in file '+ffile,fg='magenta')
+                continue
             stem = basename(ffile.split('.fit')[0])
             sex_cmd = SEX_TMP.format(ffile, t120_sex, t120_param, default_conv,
-                                  SEX_RES, stem + '-c.ldac',
+                                  SEX_RES, stem + '.ldac',
                                   SEX_RES, stem + '-bckg.fits',
                                   SEX_RES, stem + '-obj.fits',
-                                  SEX_RES, stem + '-c.xml')
+                                  SEX_RES, stem + '.xml')
+#            if verbose:
+#                click.secho(' submitting SExtractor cmd: '+sex_cmd, nl=True)
             system(sex_cmd)
 
     # Run PSFEx with sextractor-determined sources.
     if psfex:
-        for ffile in glob('{}/*.fits'.format(RED)):
+        for ffile in glob('{}/*.fits'.format(SXD)):
             stem = basename(ffile.split('.fit')[0])
-            psfex_cmd = PSFEX_TMP.format(t120_psfex, stem + '-c.xml')
+            psfex_cmd = PSFEX_TMP.format(t120_psfex, stem + '.xml')
+#            if verbose:
+#                click.secho(' submitting PSFex cmd: '+psfex_cmd, nl=True)
             system(psfex_cmd)
 
     # Run sextractor with PSFEx-determined PSF.
     if sexagain:
-        for ffile in glob('{}/*.fits'.format(RED)):
+        for ffile in glob('{}/*.fits'.format(SXD)):
+            if ffile in noastro:
+                click.secho('W: No enough astrometry info in file '+ffile,fg='magenta')
+                continue
             stem = basename(ffile.split('.fit')[0])
             sexagain_cmd = SEX_TMP.format(ffile, t120_sex, t120_parampsfex,
                                   default_conv,
-                                  SEX_RES, stem + '-c.ldac',
+                                  SEX_RES, stem + '.ldac',
                                   SEX_RES, stem + '-bckg.fits',
                                   SEX_RES, stem + '-obj.fits',
-                                  SEX_RES, stem + '-c.xml')\
-                         + SEXAGAIN_OPT_TMP.format(stem + '-c.psf')
+                                  SEX_RES, stem + '.xml')\
+                         + SEXAGAIN_OPT_TMP.format(stem + '.psf')
+#            if verbose:
+#                click.secho(' submitting again SExtractor cmd: '+sexagain_cmd, nl=True)
             system(sexagain_cmd)
+   
+    # Run SCAMP
+    if scamp:
+        listldac = glob('{}/*.ldac'.format(SEX_RES))
+        scamp_cmd = SCAMP_TMP.format(' '.join(listldac), t120_scamp, t120_ahead)
+#        if verbose:
+#            click.secho(' submitting SCAMP cmd: '+scamp_cmd, nl=True)
+        system(scamp_cmd)
+        
+        #  read scamp result
+        scampxml = 'scamp.xml'
+        votable = parse(scampxml)
+        table = votable.get_first_table()
+        catcont = Table([(table.array['Catalog_Name']).data,
+                         (table.array['XY_Contrast']).data],names=['name','contrast'])
 
+        min_contrast = 10.0
+        # put astrometry info into image fits header
+        for fhed in glob('{}/*.head'.format(SEX_RES)):
+            # get/set original/reduced image file name
+            key = splitext(basename(fhed))[0].replace('_aux','')
+            fori = '{}/{}'.format(UOBJ, u2ar[key])
+            fred = '{}/{}'.format(URED,basename(fori))
+            ffts = '{}/{}'.format(SXD,basename(fhed.replace('.head','.fits')))
+            # check if SCAMP contrast is enough
+            mask = catcont['name']==basename(fhed).replace('.head','.ldac')
+            contrast = catcont[mask]['contrast'][0]
+            click.secho('{} = contrast: {}'.format(fori,contrast))
+            if (contrast < min_contrast):
+                click.secho('W: Contrast too low ({}) for {}'.format(contrast,fori), fg='magenta')
+                remove(fhed)
+                remove(fhed.replace('.head','.ldac'))
+                continue
+            
+            # update header
+            red_data = fits.getdata(ffts)
+            red_header = fits.Header.fromtextfile(fhed)
+            fts_header = fits.getheader(ffts)
+            # write first version of fits file
+            fits.writeto(fred, red_data, fts_header, overwrite=True)
+            # now update header
+            for hdr_key in red_header:
+                if hdr_key=='HISTORY' or hdr_key=='COMMENT' or 'FLXSCALE':
+                    continue
+                fits.setval(fred,hdr_key , value=red_header[hdr_key])
+            
+            if verbose:
+                click.secho('Reduced data saved in '+fred)
+    
+    
+    
     # Report execution time.
     t1 = time()
     click.secho('\nAll done. ({})'.format(timedelta(seconds=int(t1 - t0))),
