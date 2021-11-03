@@ -15,7 +15,7 @@ from astropy.coordinates import SkyCoord
 
 # List of all options.
 OPT_LIST = ['setup', 'clear', 'interpolate', 'verbose', 'tmppng', 'redpng',
-            'sex', 'psfex', 'sexagain']
+            'sex', 'psfex', 'sexagain', 'scamp', 'nomaster', 'nostack']
 
 # Comment for header keywords.
 HC = 'Exposure time in seconds'

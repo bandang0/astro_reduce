@@ -59,13 +59,16 @@ from helpers import SEX_TMP, PSFEX_TMP, SEXAGAIN_OPT_TMP, SCAMP_TMP
 @click.option('--sexagain', is_flag=True,
               help='Run the `sex` astromatic command a second time, using the '
               '`psfex`-determined PSF data.')
-#@click.option('--scamp', is_flag=True,
-#              help='Run the `scamp` astromatic command on all reduced images '
-#              'after reduction.')
-#@click.option('--nostack', is_flag=True,
-#              help='If True, skip the staking process')
+@click.option('--scamp', is_flag=True,
+              help='Run the `scamp` astromatic command on all reduced images '
+              'after reduction.')
+@click.option('--nomaster', is_flag=True,
+              help='If set, do not calculate the master darks and flats (and '
+              'assume they are already there!)')
+@click.option('--nostack', is_flag=True,
+              help='If set, skip the stacking process.')
 def cli(setup, clear, interpolate, verbose, tmppng, redpng,
-        sex, psfex, sexagain):
+        sex, psfex, sexagain, scamp, nomaster, nostack):
     '''Main run of astro_reduce:
 
     If --setup option is on: copy all user fits data to files with standard
@@ -277,129 +280,128 @@ def cli(setup, clear, interpolate, verbose, tmppng, redpng,
             uniq_names = set(map(handy, flat_files[filt]))
             click.echo('    {:10}: {}'.format(filt, uniq_names))
 
-    # STEP 0: Create directory for tmp and reduced images if not existent.
+    # STEP 0: Create directory for auxiliary and stacked images if not existent.
     if verbose:
         click.secho('Creating folders to hold master, intermediate and stacked images.',
                     fg='green')
 
-    if exists(MASTER):
-        rmtree(MASTER, ignore_errors=True)
-    mkdir(MASTER)
-    if exists(TMP):
-        rmtree(TMP, ignore_errors=True)
-    mkdir(TMP)
-    if exists(STK):
-        rmtree(STK, ignore_errors=True)
-    mkdir(STK)
+    if not exists(MASTER) and nomaster:
+        click.echo('E: You used the `--nomaster` option but there is no MASTER folder...')
 
-    # STEP 1: Write the master dark files (medians of darks)
-    # for each available exposure.
-    click.secho('Writing master dark images:', fg='green')
-    all_exposures = conf_dic['exposures']
-    available_exposures = [exp for exp in dark_files if dark_files[exp]]
-    for exp in available_exposures:
-        if verbose:
-            click.echo('    {:14} '.format('{}ms...'.format(exp)), nl=False)
-        mdark_data = np.median([fits.getdata(_) for _ in dark_files[exp]],
-                               axis=0)
-        mdark_header = fits.getheader(dark_files[exp][0])
+    for folder in [MASTER, TMP, STK]:
+        if not exists(folder):
+            mkdir(folder)
 
-        # Write fits file and header.
-        nname = '{}/mdark_{}.fits'.format(MASTER, exp)
-        fits.writeto(nname, mdark_data, mdark_header, overwrite=True)
-        fits.setval(nname, 'FILTER', value='        ')
-        fits.setval(nname, 'IMAGETYP', value='Dark    ')
-        fits.setval(nname, 'EXPTIME', value=float(exp / 1000.), comment=HC)
-        fits.setval(nname, 'EXPOSURE', value=float(exp / 1000.), comment=HC)
-        fits.setval(nname, 'OBJECT', value='DARK    ')
+    # Determine the master files if the `--nomaster` option is off.
+    if not nomaster:
+        # STEP 1: Write the master dark files (medians of darks)
+        # for each available exposure.
+        click.secho('Writing master dark images:', fg='green')
+        all_exposures = conf_dic['exposures']
+        available_exposures = [exp for exp in dark_files if dark_files[exp]]
+        for exp in available_exposures:
+            if verbose:
+                click.echo('    {:14} '.format('{}ms...'.format(exp)), nl=False)
+            mdark_data = np.median([fits.getdata(_) for _ in dark_files[exp]],
+                                   axis=0)
+            mdark_header = fits.getheader(dark_files[exp][0])
 
-        if verbose:
-            click.echo('Done ({} images).'.format(len(dark_files[exp])))
+            # Write fits file and header.
+            nname = '{}/mdark_{}.fits'.format(MASTER, exp)
+            fits.writeto(nname, mdark_data, mdark_header, overwrite=True)
+            fits.setval(nname, 'FILTER', value='        ')
+            fits.setval(nname, 'IMAGETYP', value='Dark    ')
+            fits.setval(nname, 'EXPTIME', value=float(exp / 1000.), comment=HC)
+            fits.setval(nname, 'EXPOSURE', value=float(exp / 1000.), comment=HC)
+            fits.setval(nname, 'OBJECT', value='DARK    ')
 
-    # STEP 1.5: If there are some missing darks and the interpolate option
-    # is on, then interpolate the master darks.
-    # We use least squares linear interpolation, i.e., we calculate `a` and `b`
-    # such that (missing_dark) = a * (exposure_time) + b.
-    # Exit if there are no darks at all.
-    if not available_exposures:
-        click.secho('E: There are no dark files at all! Cannot interpolate...',
-                    fg='red')
-        exit(1)
+            if verbose:
+                click.echo('Done ({} images).'.format(len(dark_files[exp])))
 
-    if len(available_exposures) == 1:
-        # If there's only one available exosure time, consider that the darks
-        # are dominated by the bias, which is likely. In this case:
-        # a = 0, b = only_dark
-        only_exp = available_exposures[0]
-        only_mdark = fits.getdata('{}/mdark_{}.fits'.format(MASTER, only_exp))
-        a = np.zeros_like(only_mdark)
-        b = only_mdark
-    else:
-        # If not, if you want to fit y = a * x + b,
-        # then the LS solution is:
-        # a = (<xy> - <x><y>) / (<x ** 2> - <x> ** 2)
-        # b = <y> - a * <x>
-        mxy = np.mean([float(exp)
-                       * fits.getdata('{}/mdark_{}.fits'.format(MASTER, exp))
-                       for exp in available_exposures], axis=0)
-        mx = np.mean([float(exp) for exp in available_exposures])
-        my = np.mean([fits.getdata('{}/mdark_{}.fits'.format(MASTER, exp))
-                      for exp in available_exposures], axis=0)
-        mx2 = np.mean([float(exp) ** 2 for exp in available_exposures])
+        # STEP 1.5: If there are some missing darks and the interpolate option
+        # is on, then interpolate the master darks.
+        # We use least squares linear interpolation, i.e., we calculate `a` and `b`
+        # such that (missing_dark) = a * (exposure_time) + b.
+        # Exit if there are no darks at all.
+        if not available_exposures:
+            click.secho('E: There are no dark files at all! Cannot interpolate...',
+                        fg='red')
+            exit(1)
 
-        # a and b
-        a = (mxy - mx * my) / (mx2 - mx ** 2)
-        b = my - mx * a
+        if len(available_exposures) == 1:
+            # If there's only one available exosure time, consider that the darks
+            # are dominated by the bias, which is likely. In this case:
+            # a = 0, b = only_dark
+            only_exp = available_exposures[0]
+            only_mdark = fits.getdata('{}/mdark_{}.fits'.format(MASTER, only_exp))
+            a = np.zeros_like(only_mdark)
+            b = only_mdark
+        else:
+            # If not, if you want to fit y = a * x + b,
+            # then the LS solution is:
+            # a = (<xy> - <x><y>) / (<x ** 2> - <x> ** 2)
+            # b = <y> - a * <x>
+            mxy = np.mean([float(exp)
+                           * fits.getdata('{}/mdark_{}.fits'.format(MASTER, exp))
+                           for exp in available_exposures], axis=0)
+            mx = np.mean([float(exp) for exp in available_exposures])
+            my = np.mean([fits.getdata('{}/mdark_{}.fits'.format(MASTER, exp))
+                          for exp in available_exposures], axis=0)
+            mx2 = np.mean([float(exp) ** 2 for exp in available_exposures])
 
-    # Write all the missing master darks!
-    click.secho('Interpolating missing master dark images:', fg='green')
-    for exp in list(set(all_exposures) - set(available_exposures)):
-        if verbose:
-            click.echo('    {:14} '.format('{}ms...'.format(exp)), nl=False)
-        new_mdark_data = float(exp) * a + b
+            # a and b
+            a = (mxy - mx * my) / (mx2 - mx ** 2)
+            b = my - mx * a
 
-        # Write fits file and header.
-        nname = '{}/mdark_{}.fits'.format(MASTER, exp)
-        fits.writeto(nname, new_mdark_data, overwrite=True)
-        fits.setval(nname, 'FILTER', value='        ')
-        fits.setval(nname, 'IMAGETYP', value='Interpolated dark')
-        fits.setval(nname, 'EXPTIME', value=float(exp / 1000.), comment=HC)
-        fits.setval(nname, 'EXPOSURE', value=float(exp / 1000.), comment=HC)
-        fits.setval(nname, 'OBJECT', value='DARK    ')
+        # Write all the missing master darks!
+        click.secho('Interpolating missing master dark images:', fg='green')
+        for exp in list(set(all_exposures) - set(available_exposures)):
+            if verbose:
+                click.echo('    {:14} '.format('{}ms...'.format(exp)), nl=False)
+            new_mdark_data = float(exp) * a + b
 
-        if verbose:
-            click.echo('Done.')
+            # Write fits file and header.
+            nname = '{}/mdark_{}.fits'.format(MASTER, exp)
+            fits.writeto(nname, new_mdark_data, overwrite=True)
+            fits.setval(nname, 'FILTER', value='        ')
+            fits.setval(nname, 'IMAGETYP', value='Interpolated dark')
+            fits.setval(nname, 'EXPTIME', value=float(exp / 1000.), comment=HC)
+            fits.setval(nname, 'EXPOSURE', value=float(exp / 1000.), comment=HC)
+            fits.setval(nname, 'OBJECT', value='DARK    ')
 
-    # STEP 2: Write master transmission files for each filter:
-    # mtrans = median(normalized(flat - dark of same exposure)).
-    click.secho('Calculating master transmission (flat) images:', fg='green')
-    # Handy function to extract exposure from flat file name.
-    fexp = lambda fname: fname.split('.fit')[0].split('_')[-2]
-    for filt in flat_files:
-        if verbose:
-            click.echo('    {:12}   '.format('{}...'.format(filt)), nl=False)
+            if verbose:
+                click.echo('Done.')
 
-        # Calculate normalized flats.
-        normalized_flats = list()
-        for fitsfile in flat_files[filt]:
-            tmp = fits.getdata(fitsfile) \
-                - fits.getdata('{}/mdark_{}.fits'.format(MASTER, fexp(fitsfile)))
-            normalized_flats.append(tmp / tmp.mean(axis=0))
+        # STEP 2: Write master transmission files for each filter:
+        # mtrans = median(normalized(flat - dark of same exposure)).
+        click.secho('Calculating master transmission (flat) images:', fg='green')
+        # Handy function to extract exposure from flat file name.
+        fexp = lambda fname: fname.split('.fit')[0].split('_')[-2]
+        for filt in flat_files:
+            if verbose:
+                click.echo('    {:12}   '.format('{}...'.format(filt)), nl=False)
 
-        mtrans_data = np.median(normalized_flats, axis=0)
-        mflat_header = fits.getheader(flat_files[filt][0])
+            # Calculate normalized flats.
+            normalized_flats = list()
+            for fitsfile in flat_files[filt]:
+                tmp = fits.getdata(fitsfile) \
+                    - fits.getdata('{}/mdark_{}.fits'.format(MASTER, fexp(fitsfile)))
+                normalized_flats.append(tmp / tmp.mean(axis=0))
 
-        # Write fits file and header.
-        nname = '{}/mtrans_{}.fits'.format(MASTER, filt)
-        fits.writeto(nname, mtrans_data, mflat_header, overwrite=True)
-        fits.setval(nname, 'FILTER', value=filt)
-        fits.setval(nname, 'IMAGETYP', value='Light Frame')
-        fits.setval(nname, 'EXPTIME', value=-1., comment=HC)
-        fits.setval(nname, 'EXPOSURE', value=-1., comment=HC)
-        fits.setval(nname, 'OBJECT', value='FLAT    ')
+            mtrans_data = np.median(normalized_flats, axis=0)
+            mflat_header = fits.getheader(flat_files[filt][0])
 
-        if verbose:
-            click.echo('Done ({} images).'.format(len(flat_files[filt])))
+            # Write fits file and header.
+            nname = '{}/mtrans_{}.fits'.format(MASTER, filt)
+            fits.writeto(nname, mtrans_data, mflat_header, overwrite=True)
+            fits.setval(nname, 'FILTER', value=filt)
+            fits.setval(nname, 'IMAGETYP', value='Light Frame')
+            fits.setval(nname, 'EXPTIME', value=-1., comment=HC)
+            fits.setval(nname, 'EXPOSURE', value=-1., comment=HC)
+            fits.setval(nname, 'OBJECT', value='FLAT    ')
+
+            if verbose:
+                click.echo('Done ({} images).'.format(len(flat_files[filt])))
 
     # STEP 3: Reduce all the object images with corresponding filter mtrans
     # and exposure mdark.
@@ -413,8 +415,16 @@ def cli(setup, clear, interpolate, verbose, tmppng, redpng,
             filt, exp = fname_bits(bfname)
 
             # Corresponding darks and flats.
-            mdark_data = fits.getdata('{}/mdark_{}.fits'.format(MASTER, exp))
-            mtrans_data = fits.getdata('{}/mtrans_{}.fits'.format(MASTER, filt))
+            try:
+                mdark_data = fits.getdata('{}/mdark_{}.fits'.format(MASTER, exp))
+                mtrans_data = fits.getdata('{}/mtrans_{}.fits'.format(MASTER, filt))
+            except FileNotFoundError:
+                if nomaster:
+                    click.echo(f'E: There are some master files missing for {exp}, {filt}, are you sure you want to use the `--nomaster` option?')
+                else:
+                    # There are missing flats and darks and we didn't notice it.
+                    # Do a real crash.
+                    raise
 
             # (Raw - Dark) / Trans.
             aux_data = (fits.getdata(fname) - mdark_data) / mtrans_data
@@ -439,10 +449,7 @@ def cli(setup, clear, interpolate, verbose, tmppng, redpng,
 
     # STEP 4: For all objects realign and median the aux images.
     # You are left with one image per object per filter per exposure.
-    # TODO: remove the following line and replace by program argument
-    nostack = True
-    stack = not nostack
-    if stack:
+    if not nostack:
         click.secho('Realigning/Stacking object images:', fg='green')
         for obj in object_files:
             if verbose:
@@ -507,10 +514,10 @@ def cli(setup, clear, interpolate, verbose, tmppng, redpng,
 
     # STEP 6: If options sex, psfex or sexagain are on,
     # run the astromatic suite.
-    # Sexagain implies psfex and psfex implies sex.
+    # Sexagain implies psfex and psfex implies sex and scamp implies sex.
     psfex = psfex or sexagain
     sex = sex or psfex
-    scamp = True # TODO: REMOVE THIS LINE AND PUT IT AS ARGUMENT
+    sex = sex or scamp
     if sex or psfex or sexagain or scamp:
         # Setup for the astrometry: initialize empty result folders
         for folder in [SEX_RES, PSFEX_RES, SCAMP_RES, RED]:
