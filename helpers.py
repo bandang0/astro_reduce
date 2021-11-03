@@ -25,8 +25,6 @@ HC = 'Exposure time in seconds'
 UDARK = 'DARK'
 UFLAT = 'FLAT'
 UOBJ = 'ORIGINAL'
-URED = 'REDUCED'
-USCK = 'STACKED'
 
 # Astro-reduce working directories.
 OBJ = 'ar_objects'
@@ -35,11 +33,13 @@ FLAT = 'ar_flats'
 MASTER = 'ar_masters'
 TMP = 'tmp'
 
+# Astro-reduce results directories.
+STK = 'stacked'
+RED = 'reduced'
+
 # File names and extensions.
 DI = 'dark'
 FI = 'flat'
-RED = 'reduced'
-STK = 'stacked'
 AUX = 'aux'
 
 # Astromatic result directories.
@@ -92,10 +92,10 @@ def obj_correct_header(aux_header):
     aux_header['CUNIT2'] = ('DEG','Axis unit')
     aux_header['EQUINOX'] = (2000.0,' Mean equinox')
     aux_header['RADESYS'] = ('ICRS ','Astrometric system')
-    aux_header['CD1_1'] = (-2.138738809045E-04,'Linear projection matrix')                    
-    aux_header['CD1_2'] = (  2.180959444292E-06,'Linear projection matrix')                   
-    aux_header['CD2_1'] = (-2.331002019312E-06,'Linear projection matrix')                     
-    aux_header['CD2_2'] = (-2.138176347970E-04,'Linear projection matrix')  
+    aux_header['CD1_1'] = (-2.138738809045E-04,'Linear projection matrix')
+    aux_header['CD1_2'] = (  2.180959444292E-06,'Linear projection matrix')
+    aux_header['CD2_1'] = (-2.331002019312E-06,'Linear projection matrix')
+    aux_header['CD2_2'] = (-2.138176347970E-04,'Linear projection matrix')
     return aux_header
 
 
