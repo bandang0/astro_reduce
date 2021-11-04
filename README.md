@@ -1,5 +1,7 @@
 # astro_reduce -- A Simple CCD Images Reducer for the Paris Observatory.
 
+[![image](http://img.shields.io/pypi/v/astro-reduce.svg)](https://pypi.python.org/pypi/astro-reduce/)
+
 ## What does astro_reduce do?
 
 `astro_reduce` reduces raw astronomical CCD images read in FITS format with dark and flat field images. Optionally, it can interpolate missing dark fields from the ones available, and can also convert the intermediate and reduced images to PNG format for easy inspection. Finally, it can also run the [Astromatic Software Suite](https://www.astromatic.net/) on the images obtained from the reduction. For this, the relevant commands--either `sex` or `psfex` accordingly with the specified options--must be installed on your system. The configuration files for these commands are handled internally by `astro_reduce`, you do not need to provide them.
