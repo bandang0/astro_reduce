@@ -4,7 +4,7 @@
 
 ## What does astro_reduce do?
 
-`astro_reduce` reduces raw astronomical CCD images read in FITS format with dark and flat field images. Optionally, it can interpolate missing dark fields from the ones available, and can also convert the intermediate and reduced images to PNG format for easy inspection. Finally, it can also run the [Astromatic Software Suite](https://www.astromatic.net/) on the images obtained from the reduction. For this, the relevant commands--either `sex` or `psfex` accordingly with the specified options--must be installed on your system. The configuration files for these commands are handled internally by `astro_reduce`, you do not need to provide them.
+`astro_reduce` carries out the cosmetic and astrometric reduction of astronomical CCD images read in FITS format. The cosmetic reduction is done in a standard fashion with dark and flat field images. Optionally, it can interpolate missing dark fields from the ones available, and can also convert the intermediate and reduced images to PNG format for easy inspection. The astromatric reduction is done via calling the [Astromatic Software Suite](https://www.astromatic.net/) on the images obtained from the cosmetic reduction. For this, the relevant commands--either `sex`, `psfex` or `scamp` accordingly with the specified options--must be installed on your system. The configuration files for these commands are handled internally by `astro_reduce`, you do not need to provide them.
 
 To operate, `astro_reduce` is to be launched from a directory containing three folders:
 - A `DARK` folder, containing all the dark field images,
@@ -13,13 +13,13 @@ To operate, `astro_reduce` is to be launched from a directory containing three f
 
 All files must be in FITS format, with correct filter, exposure time and object header keywords wherever relevant.
 
-When launched for the first time in a directory, use the `--setup` option. This will copy all data files to working folders (thereby backing up the original data). Then, run `astro_reduce` again without the `--setup` option to run the reduction. This applies the standard astronomical CCD image reduction process. On the way, intermediate images such as master dark fields or non-realigned object fields are safe-kept in the `tmp/` folder.
+When launched for the first time in a directory, use the `--setup` option. This will copy all data files to working folders (thereby backing up the original data). Then, run `astro_reduce` again without the `--setup` option to run the cosmetic and astrometrical reduction. On the way, intermediate images such as master dark fields or non-stacked object fields are safe-kept in the `MASTER` and `ar_tmp/` folders.
 
-After running, the final reduced images can be found in the `reduced/` folder. The reduction process and the nomenclature for the naming of the files in the `tmp/` and `reduced/` folders are given in the _Reduction method_ paragraph below.
+After running, the final stacked images can be found in the `stacked/` folder. The cosmetic reduction process and the nomenclature for the naming of the files in the `MASTER`, `ar_tmp/` and `stacked/` folders are given in the _Reduction method_ paragraph below.
 
-__Note:__ It is highly recommended to inspect the intermediate images produced by `astro_reduce` before considering the final reduced images. Also, we highly recommend you inspect your raw images and eliminate any bad ones before launching the reduction.
+__Note:__ It is highly recommended to inspect the intermediate images produced by `astro_reduce` before considering the final reduced images. Also, we highly recommend you inspect your raw images and eliminate any bad ones before launching the software.
 
-If options to run the Astromatic software were used, the results can be found after running in the `SEXRES` and `PSFRES` folders.
+If options to run the Astromatic software were used, the results can be found after running in the `SEXRES`, `PSFRES` and `SCAMPRES` folders.
 
 ## Installing
 The `astro_reduce` program can be installed from the PyPI under the name `astro-reduce`. This package provides the command with all options.

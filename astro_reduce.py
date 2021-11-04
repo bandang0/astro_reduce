@@ -38,7 +38,7 @@ from helpers import SEX_TMP, PSFEX_TMP, SEXAGAIN_OPT_TMP, SCAMP_TMP
 @click.option('--setup', '-s', is_flag=True,
               help='Set up the directory for reduction. Use this option the '
               'first time astro_reduce is run in the directory or after the '
-              '``--clear` option was used.')
+              '`--clear` option was used.')
 @click.option('--clear', '-c', is_flag=True,
               help='Remove all astro_reduce-related files and folders in '
               'current directory and exit.')
