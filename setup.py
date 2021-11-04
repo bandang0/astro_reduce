@@ -9,7 +9,7 @@ with open("README.md", "r") as fh:
 setup(
     # General info
     name="astro_reduce",
-    version="3.2.0",
+    version="3.3.0",
     py_modules=["astro_reduce", "helpers", "cosmetic", "astrometry"],
 
     # Dependencies
@@ -32,12 +32,14 @@ setup(
     data_files=[('data', ['data/t120.sex',
                           'data/t120.param',
                           'data/t120.psfex',
+                          'data/t120.scamp',
+                          'data/t120-andor1024.ahead',
                           'data/t120.parampsfex',
                           'data/default.conv'])],
 
     # Metadata to display on PyPI
     author="Raphaël Duque",
-    author_email="duque@iap.fr",
+    author_email="duque@physik.uni-frankfurt.de",
     url="https://github.com/bandang0/astro_reduce",
     description="A Simple CCD Images Reducer for the Paris Observatory.",
     long_description_content_type="text/markdown",

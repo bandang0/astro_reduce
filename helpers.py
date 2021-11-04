@@ -17,6 +17,9 @@ from astropy.coordinates import SkyCoord
 OPT_LIST = ['setup', 'clear', 'interpolate', 'verbose', 'tmppng', 'redpng',
             'sex', 'psfex', 'sexagain', 'scamp', 'nomaster', 'nostack']
 
+# List of astromatic commands.
+ASTROMATIC_LIST = ['sex', 'psfex', 'sexagain', 'scamp']
+
 # Comment for header keywords.
 HC = 'Exposure time in seconds'
 
@@ -75,17 +78,25 @@ SCAMP_TMP = 'scamp {} -c {} -AHEADER_GLOBAL {}'
 hsh = lambda x: md5(x.encode('utf-8')).hexdigest()
 
 
-def obj_correct_header(aux_header):
-    '''Correct T120 fits header'''
-    # update header and put basic astrometry information
+def init_astro_header(aux_header):
+    '''Initialize the header with astrometric data.
+
+    If the header does not contain coordinates of center of field, return -1.'''
+    # Check if contains the c-o-f coordinates, return -1 if not:
+    if not ('OBJCRA' in aux_header and 'OBJCDEC' in aux_header):
+        return -1
+
+    # Coordinates are there, proceed.
+    # Update header and put basic astrometry information.
     crpix1 = int(aux_header['NAXIS1'] / 2.0)
     crpix2 = int(aux_header['NAXIS2'] / 2.0)
     aux_header['CRPIX1'] = (crpix1,'Reference pixel on this axis')
     aux_header['CRPIX2'] = (crpix2,'Reference pixel on this axis')
-    # get/set RADEC center of FOV
-    skycoo = SkyCoord(aux_header['OBJCTRA'],aux_header['OBJCTDEC'],unit=[u.hourangle,u.deg])
-    aux_header['CRVAL1'] = (skycoo.ra.to('deg').value,'World coordinate on this axis')
-    aux_header['CRVAL2'] = (skycoo.dec.to('deg').value,'World coordinate on this axis')
+    # Read and set RADEC center of FOV.
+    skycoo = SkyCoord(aux_header['OBJCTRA'],
+                      aux_header['OBJCTDEC'],unit=[u.hourangle,u.deg])
+    aux_header['CRVAL1'] = (skycoo.ra.to('deg').value, 'World coordinate on this axis')
+    aux_header['CRVAL2'] = (skycoo.dec.to('deg').value, 'World coordinate on this axis')
     aux_header['CTYPE1'] = ('RA---TAN','WCS projection type for this axis')
     aux_header['CTYPE2'] = ('DEC--TAN','WCS projection type for this axis')
     aux_header['CUNIT1'] = ('DEG', 'Axis unit')
