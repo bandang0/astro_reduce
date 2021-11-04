@@ -83,7 +83,7 @@ def init_astro_header(aux_header):
 
     If the header does not contain coordinates of center of field, return -1.'''
     # Check if contains the c-o-f coordinates, return -1 if not:
-    if not ('OBJCRA' in aux_header and 'OBJCDEC' in aux_header):
+    if not ('OBJCTRA' in aux_header and 'OBJCTDEC' in aux_header):
         return -1
 
     # Coordinates are there, proceed.

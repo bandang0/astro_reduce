@@ -24,9 +24,9 @@ from cosmetic import align_and_median
 from helpers import write_png, fname_bits, write_conf_file, obj_read_header
 from helpers import init_astro_header
 from helpers import flat_read_header, dark_read_header
-from helpers import OPT_LIST, HC, UDARK, UFLAT, UOBJ
+from helpers import OPT_LIST, ASTROMATIC_LIST, HC, UDARK, UFLAT, UOBJ
 from helpers import DARK, FLAT, OBJ, TMP, MASTER
-from helpers import DI, FI, RED, STK, AUX,
+from helpers import DI, FI, RED, STK, AUX
 from helpers import SEX_RES, PSFEX_RES, SCAMP_RES, AR, DATA
 from helpers import T120_SEX, T120_PARAM, T120_PSFEX, T120_PARAMPSFEX
 from helpers import DEFAULT_CONV, T120_SCAMP,T120_AHEAD
@@ -246,8 +246,8 @@ def cli(setup, clear, interpolate, verbose, tmppng, redpng,
                         fg='red')
             exit(1)
     for key in dark_files:
-        if not dark_files[key] and not interpolate:
-            # If the interpolate option is off and there are some darks
+        if not dark_files[key] and not interpolate and not nomaster:
+            # If the interpolate and nomaster options are off and there are some darks
             # missing, exit.
             click.secho('E: Did not find dark field images for {}ms exposure.\n'
                         'E: In order to interpolate the missing dark fields\n'
@@ -255,7 +255,7 @@ def cli(setup, clear, interpolate, verbose, tmppng, redpng,
                         'E: --interpolate option.'.format(key), fg='red')
             exit(1)
     for key in flat_files:
-        if not flat_files[key]:
+        if not flat_files[key] and not nomaster:
             click.secho('E: No flat field images for {} filter.'.format(key),
                         fg='red')
             exit(1)
@@ -286,7 +286,8 @@ def cli(setup, clear, interpolate, verbose, tmppng, redpng,
                     fg='green')
 
     if not exists(MASTER) and nomaster:
-        click.echo('E: You used the `--nomaster` option but there is no MASTER folder...')
+        click.secho('E: You used the `--nomaster` option but there is no MASTER folder...', fg='red')
+        exit(1)
 
     for folder in [MASTER, TMP, STK]:
         if not exists(folder):
@@ -426,7 +427,8 @@ def cli(setup, clear, interpolate, verbose, tmppng, redpng,
                 mtrans_data = fits.getdata('{}/mtrans_{}.fits'.format(MASTER, filt))
             except FileNotFoundError:
                 if nomaster:
-                    click.echo(f'E: There are some master files missing for {exp}ms, {filt}, are you sure you want to use the `--nomaster` option?')
+                    click.secho(f'E: Master files are missing for ({exp}ms, {filt}), are you sure you want to use the `--nomaster` option?', fg='red')
+                    exit(1)
                 else:
                     # There are missing flats and darks and we didn't notice it.
                     # Do a real crash.
@@ -440,7 +442,8 @@ def cli(setup, clear, interpolate, verbose, tmppng, redpng,
             aux_header_init = init_astro_header(aux_header)
             if aux_header_init == -1:
                 # The initialization failed...
-                click.secho('W: Could not initialize astrometric data in {} (missing RADEC data)'.format(nname), fg='magenta')                noastro.append(fname)
+                click.secho('W: Could not initialize astrometric data in {} (missing RADEC data).'.format(nname), fg='magenta')
+                noastro.append(nname)
             else:
                 # It worked, use the initialized header to write aux file.
                 aux_header =  aux_header_init
@@ -493,7 +496,7 @@ def cli(setup, clear, interpolate, verbose, tmppng, redpng,
                 stacked_header_init = init_astro_header(stacked_header)
                 if stacked_header_init == -1:
                     # The initialization failed...
-                    click.secho('W: Could not initialize astrometric data in {} (missing RADEC data)'.format(nname), fg='magenta')
+                    click.secho('W: Could not initialize astrometric data in {} (missing RADEC data).'.format(nname), fg='magenta')
                 else:
                     # It worked, use the initialized header to write stacked file.
                     stacked_header =  stacked_header_init
@@ -532,18 +535,19 @@ def cli(setup, clear, interpolate, verbose, tmppng, redpng,
     psfex = psfex or sexagain
     sex = sex or psfex
     sex = sex or scamp
-    # Announce the suite of astromatic commands we will launch.
-    click.secho('We will be running the following Astromatic commands: '
-                '{}.'.format(', '.join(filter(eval, ASTROMATIC_LIST))),
-                fg='green')
     if sex or psfex or sexagain or scamp:
+        # Announce the suite of astromatic commands we will launch.
+        click.secho('Starting astrometry reduction.\n'
+                    'We will be running the following Astromatic commands: '
+                    '{}.'.format(', '.join(filter(eval, ASTROMATIC_LIST))),
+                    fg='green')
         # Setup for the astrometry: initialize empty result folders
         for folder in [SEX_RES, PSFEX_RES, SCAMP_RES, RED]:
             if exists(folder):
                 rmtree(folder, ignore_errors=True)
             mkdir(folder)
 
-        # Setup for the astrometry: find configuration files in the file system
+        # Setup for the astrometry: find configuration files in the file system.
         t120_sex = resource_filename(AR, '{}/{}'.format(DATA, T120_SEX))
         t120_param = resource_filename(AR, '{}/{}'.format(DATA, T120_PARAM))
         t120_psfex = resource_filename(AR, '{}/{}'.format(DATA, T120_PSFEX))
@@ -566,7 +570,7 @@ def cli(setup, clear, interpolate, verbose, tmppng, redpng,
                                   SEX_RES, stem + '-obj.fits',
                                   SEX_RES, stem + '.xml')
             if verbose:
-                click.secho(' Submitting SExtractor command: {}'.format(sex_cmd), nl=True)
+                click.secho('  Submitting SExtractor command: {}'.format(sex_cmd), nl=True, fg='blue')
             system(sex_cmd)
 
     # Run PSFEx with sextractor-determined sources.
@@ -578,7 +582,7 @@ def cli(setup, clear, interpolate, verbose, tmppng, redpng,
             stem = basename(ffile.split('.fit')[0])
             psfex_cmd = PSFEX_TMP.format(t120_psfex, stem + '.xml')
             if verbose:
-                click.secho(' Submitting PSFex command: {}'.format(psfex_cmd), nl=True)
+                click.secho('  Submitting PSFex command: {}'.format(psfex_cmd), nl=True, fg='blue')
             system(psfex_cmd)
 
     # Run sextractor with PSFEx-determined PSF.
@@ -596,7 +600,7 @@ def cli(setup, clear, interpolate, verbose, tmppng, redpng,
                                   SEX_RES, stem + '.xml')\
                          + SEXAGAIN_OPT_TMP.format(stem + '.psf')
             if verbose:
-                click.secho(' Submitting second SExtractor command: {}'.format(sexagain_cmd), nl=True)
+                click.secho('  Submitting second SExtractor command: {}'.format(sexagain_cmd), nl=True, fg='blue')
             system(sexagain_cmd)
 
     # Run SCAMP
@@ -604,7 +608,7 @@ def cli(setup, clear, interpolate, verbose, tmppng, redpng,
         listldac = glob('{}/*.ldac'.format(SEX_RES))
         scamp_cmd = SCAMP_TMP.format(' '.join(listldac), t120_scamp, t120_ahead)
         if verbose:
-            click.secho(' Submitting SCAMP commad: {}'.format(scamp_cmd), nl=True)
+            click.secho('  Submitting SCAMP commad: {}'.format(scamp_cmd), nl=True, fg='blue')
         system(scamp_cmd)
 
         #  read scamp result
