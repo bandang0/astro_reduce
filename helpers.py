@@ -81,7 +81,8 @@ hsh = lambda x: md5(x.encode('utf-8')).hexdigest()
 def init_astro_header(aux_header):
     '''Initialize the header with astrometric data.
 
-    If the header does not contain coordinates of center of field, return -1.'''
+    If the header does not contain coordinates of center of field, return -1.
+    '''
     # Check if contains the c-o-f coordinates, return -1 if not:
     if not ('OBJCTRA' in aux_header and 'OBJCTDEC' in aux_header):
         return -1
@@ -95,8 +96,10 @@ def init_astro_header(aux_header):
     # Read and set RADEC center of FOV.
     skycoo = SkyCoord(aux_header['OBJCTRA'],
                       aux_header['OBJCTDEC'],unit=[u.hourangle,u.deg])
-    aux_header['CRVAL1'] = (skycoo.ra.to('deg').value, 'World coordinate on this axis')
-    aux_header['CRVAL2'] = (skycoo.dec.to('deg').value, 'World coordinate on this axis')
+    aux_header['CRVAL1'] = (skycoo.ra.to('deg').value,
+                            'World coordinate on this axis')
+    aux_header['CRVAL2'] = (skycoo.dec.to('deg').value,
+                            'World coordinate on this axis')
     aux_header['CTYPE1'] = ('RA---TAN','WCS projection type for this axis')
     aux_header['CTYPE2'] = ('DEC--TAN','WCS projection type for this axis')
     aux_header['CUNIT1'] = ('DEG', 'Axis unit')
@@ -108,7 +111,6 @@ def init_astro_header(aux_header):
     aux_header['CD2_1'] = (-2.331002019312E-06,'Linear projection matrix')
     aux_header['CD2_2'] = (-2.138176347970E-04,'Linear projection matrix')
     return aux_header
-
 
 
 def dark_read_header(fname):

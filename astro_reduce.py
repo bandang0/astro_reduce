@@ -38,7 +38,7 @@ from helpers import SEX_TMP, PSFEX_TMP, SEXAGAIN_OPT_TMP, SCAMP_TMP
 @click.option('--setup', '-s', is_flag=True,
               help='Set up the directory for reduction. Use this option the '
               'first time astro_reduce is run in the directory or after the '
-              '--clear option was used.')
+              '``--clear` option was used.')
 @click.option('--clear', '-c', is_flag=True,
               help='Remove all astro_reduce-related files and folders in '
               'current directory and exit.')
@@ -47,48 +47,49 @@ from helpers import SEX_TMP, PSFEX_TMP, SEXAGAIN_OPT_TMP, SCAMP_TMP
 @click.option('--verbose', '-v', is_flag=True,
               help='Enables verbose mode (recommended).')
 @click.option('--tmppng', '-t', is_flag=True,
-              help='Write PNG format of intermediate images after reduction.')
-@click.option('--redpng', '-r', is_flag=True,
-              help='Write PNG format of reduced images after reduction.')
-@click.option('--sex', is_flag=True,
-              help='Run the `sex` astromatic command on all reduced images '
+              help='Write PNG format of auxiliary and master images '
               'after reduction.')
+@click.option('--stkpng', '-r', is_flag=True,
+              help='Write PNG format of stacked images after reduction.')
+@click.option('--sex', is_flag=True,
+              help='Run the `sex` astromatic command on all auxiliary images '
+              'after the cosmetic reduction.')
 @click.option('--psfex', is_flag=True,
               help='Run the `psfex` astromatic command with the '
-              '`sex`-determined sources in all reduced images.')
+              '`sex`-determined sources in all auxiliary images.')
 @click.option('--sexagain', is_flag=True,
               help='Run the `sex` astromatic command a second time, using the '
               '`psfex`-determined PSF data.')
 @click.option('--scamp', is_flag=True,
-              help='Run the `scamp` astromatic command on all reduced images '
-              'after reduction.')
+              help='Run the `scamp` astromatic command on all auxiliary images '
+              'after cosmetic reduction.')
 @click.option('--nomaster', is_flag=True,
               help='If set, do not calculate the master darks and flats (and '
-              'assume they are already there!)')
+              'assume they are already there!).')
 @click.option('--nostack', is_flag=True,
               help='If set, skip the stacking process.')
 def cli(setup, clear, interpolate, verbose, tmppng, redpng,
         sex, psfex, sexagain, scamp, nomaster, nostack):
     '''Main run of astro_reduce:
 
-    If --setup option is on: copy all user fits data to files with standard
+    If `--setup` option is on: copy all user fits data to files with standard
        names in the working directories, and exit.
 
-    If --clear option is on: clear directory of all astro_reduce working data
+    If `--clear` option is on: clear directory of all astro_reduce working data
     and exit.
 
-    Else, reduction procedure:
+    Else, cosmetic reduction procedure:
     i) Reduce dark field images to master darks for all exposures.
     ii) If necessary, interpolate darks for exposures lacking dark fields.
     iii) Reduce all flat field images to master transmission files.
     iv) Reduce all object images with the master reduction files.
-    v) Realign the object images of same series.
+    v) Stack the object images of same series.
 
-    If --{tmp,red}png options are on: generate PNG versions of temporary
-    and reduced images.
+    If `--{tmp,stk}png` options are on: generate PNG versions of auxiliary,
+    master and stacked images.
 
-    If --{sex,psfex,sexagain} options are on: run the astromatic suite on the
-    reduced images.
+    If `--{sex,psfex,sexagain,scamp}` options are on: run the astromatic suite
+    on the auxiliary images to perform the astrometric reduction.
 
     '''
     # Current working directory.
@@ -96,7 +97,7 @@ def cli(setup, clear, interpolate, verbose, tmppng, redpng,
 
     # Welcome.
     click.secho('    Welcome to astro_reduce!\n'
-                '    Software is copyright 2018-2021 R. Duque.\n\n',
+                '    Software is copyright 2018-2022 Raphaël Duque.\n\n',
                 fg='cyan', bold=True)
     click.secho('Currently working in directory `{}`.'.format(cwd), fg='green')
     click.secho('Options: {}.'.format(', '.join(filter(eval, OPT_LIST))),
@@ -105,8 +106,8 @@ def cli(setup, clear, interpolate, verbose, tmppng, redpng,
     # Initialize configuration file name and timer.
     conf_file_name = '{}.json'.format(cwd)
     t0 = time()
-    # correspondance between original and temporary file
-    u2ar = {}
+    # This will hold the mapping between original and auxiliary files.
+    u2ar = dict()
 
     # If clear option is on, remove all files and folders and exit.
     if clear:
@@ -173,7 +174,7 @@ def cli(setup, clear, interpolate, verbose, tmppng, redpng,
         if verbose:
             click.echo('         Done.')
 
-        # End up the setup by writing the configuration file.
+        # Finish the setup by writing the configuration file.
         if verbose:
             click.echo('  Writing configuration file `{}`.'.format(
                                                                 conf_file_name))
@@ -213,12 +214,10 @@ def cli(setup, clear, interpolate, verbose, tmppng, redpng,
         [(filt, glob('{}/{}_{}_*.fit*'.format(FLAT, FI, filt)))
             for filt in conf_dic['filters']])
 
-    # work out correspondance between original and processed file
+    # Work out mapping between original and auxiliary files.
     for file in glob('{}/*.fit*'.format(UOBJ)):
         obj, fil, exp, fn = obj_read_header(file)
         nname = '{}'.format(fn.split('.fit')[0])
-#        if verbose:
-#            click.secho(' code: '+nname+' ori: '+basename(file))
         u2ar[nname] = basename(file)
 
     # Check working directories are still there.
@@ -247,8 +246,8 @@ def cli(setup, clear, interpolate, verbose, tmppng, redpng,
             exit(1)
     for key in dark_files:
         if not dark_files[key] and not interpolate and not nomaster:
-            # If the interpolate and nomaster options are off and there are some darks
-            # missing, exit.
+            # If the interpolate and nomaster options are off and there are some
+            # darks missing, exit.
             click.secho('E: Did not find dark field images for {}ms exposure.\n'
                         'E: In order to interpolate the missing dark fields\n'
                         'E: from the ones available, rerun using the\n'
@@ -282,11 +281,12 @@ def cli(setup, clear, interpolate, verbose, tmppng, redpng,
 
     # STEP 0: Create directory for auxiliary and stacked images if not existent.
     if verbose:
-        click.secho('Creating folders to hold master, intermediate and stacked images.',
-                    fg='green')
+        click.secho('Creating folders to hold master, auxiliary and '
+                    'stacked images.', fg='green')
 
     if not exists(MASTER) and nomaster:
-        click.secho('E: You used the `--nomaster` option but there is no MASTER folder...', fg='red')
+        click.secho('E: You used the `--nomaster` option but there is no '
+        '`MASTER` folder...', fg='red')
         exit(1)
 
     for folder in [MASTER, TMP, STK]:
@@ -321,20 +321,21 @@ def cli(setup, clear, interpolate, verbose, tmppng, redpng,
 
         # STEP 1.5: If there are some missing darks and the interpolate option
         # is on, then interpolate the master darks.
-        # We use least squares linear interpolation, i.e., we calculate `a` and `b`
-        # such that (missing_dark) = a * (exposure_time) + b.
+        # We use least squares linear interpolation, i.e., we calculate `a` and
+        # `b` such that (missing_dark) = a * (exposure_time) + b.
         # Exit if there are no darks at all.
         if not available_exposures:
-            click.secho('E: There are no dark files at all! Cannot interpolate...',
-                        fg='red')
+            click.secho('E: There are no dark files at all! '
+                        'Cannot interpolate.', fg='red')
             exit(1)
 
         if len(available_exposures) == 1:
-            # If there's only one available exosure time, consider that the darks
+            # If there's only one available exposure time, consider the darks
             # are dominated by the bias, which is likely. In this case:
-            # a = 0, b = only_dark
+            # a = 0, b = only_dark.
             only_exp = available_exposures[0]
-            only_mdark = fits.getdata('{}/mdark_{}.fits'.format(MASTER, only_exp))
+            only_mdark = fits.getdata('{}/mdark_{}.fits'.format(MASTER,
+                                                                only_exp))
             a = np.zeros_like(only_mdark)
             b = only_mdark
         else:
@@ -343,14 +344,15 @@ def cli(setup, clear, interpolate, verbose, tmppng, redpng,
             # a = (<xy> - <x><y>) / (<x ** 2> - <x> ** 2)
             # b = <y> - a * <x>
             mxy = np.mean([float(exp)
-                           * fits.getdata('{}/mdark_{}.fits'.format(MASTER, exp))
+                           * fits.getdata('{}/mdark_{}.fits'.format(MASTER,
+                                                                    exp))
                            for exp in available_exposures], axis=0)
             mx = np.mean([float(exp) for exp in available_exposures])
             my = np.mean([fits.getdata('{}/mdark_{}.fits'.format(MASTER, exp))
                           for exp in available_exposures], axis=0)
             mx2 = np.mean([float(exp) ** 2 for exp in available_exposures])
 
-            # a and b
+            # a and b.
             a = (mxy - mx * my) / (mx2 - mx ** 2)
             b = my - mx * a
 
@@ -375,24 +377,27 @@ def cli(setup, clear, interpolate, verbose, tmppng, redpng,
 
         # STEP 2: Write master transmission files for each filter:
         # mtrans = median(normalized(flat - dark of same exposure)).
-        click.secho('Calculating master transmission (flat) images:', fg='green')
+        click.secho('Calculating master transmission (flat) images:',
+                    fg='green')
         # Handy function to extract exposure from flat file name.
         fexp = lambda fname: fname.split('.fit')[0].split('_')[-2]
         for filt in flat_files:
             if verbose:
-                click.echo('    {:12}   '.format('{}...'.format(filt)), nl=False)
+                click.echo('    {:12}   '.format('{}...'.format(filt)),
+                           nl=False)
 
             # Calculate normalized flats.
             normalized_flats = list()
             for fitsfile in flat_files[filt]:
                 tmp = fits.getdata(fitsfile) \
-                    - fits.getdata('{}/mdark_{}.fits'.format(MASTER, fexp(fitsfile)))
+                    - fits.getdata('{}/mdark_{}.fits'.format(MASTER,
+                                                             fexp(fitsfile)))
                 normalized_flats.append(tmp / tmp.mean(axis=0))
 
             mtrans_data = np.median(normalized_flats, axis=0)
             mflat_header = fits.getheader(flat_files[filt][0])
 
-            # Write fits file and header.
+            # Write fits file and header for master transmission.
             nname = '{}/mtrans_{}.fits'.format(MASTER, filt)
             fits.writeto(nname, mtrans_data, mflat_header, overwrite=True)
             fits.setval(nname, 'FILTER', value=filt)
@@ -423,15 +428,18 @@ def cli(setup, clear, interpolate, verbose, tmppng, redpng,
             # Corresponding master darks and flats. Reading could fail if the
             # user fiddled with the MASTER folder and used `--nomaster`...
             try:
-                mdark_data = fits.getdata('{}/mdark_{}.fits'.format(MASTER, exp))
-                mtrans_data = fits.getdata('{}/mtrans_{}.fits'.format(MASTER, filt))
+                mdark_data = fits.getdata('{}/mdark_{}.fits'.format(MASTER,exp))
+                mtrans_data = fits.getdata('{}/mtrans_{}.fits'.format(MASTER,
+                                                                      filt))
             except FileNotFoundError:
                 if nomaster:
-                    click.secho(f'E: Master files are missing for ({exp}ms, {filt}), are you sure you want to use the `--nomaster` option?', fg='red')
+                    click.secho(f'E: Master files are missing for '
+                                f'({exp}ms, {filt}), are you sure you want to '
+                                'use the `--nomaster` option?', fg='red')
                     exit(1)
                 else:
                     # There are missing flats and darks and we didn't notice it.
-                    # Do a real crash.
+                    # It is our fault, do a real crash.
                     raise
 
             # (Raw - Dark) / Trans.
@@ -442,7 +450,8 @@ def cli(setup, clear, interpolate, verbose, tmppng, redpng,
             aux_header_init = init_astro_header(aux_header)
             if aux_header_init == -1:
                 # The initialization failed...
-                click.secho('W: Could not initialize astrometric data in {} (missing RADEC data).'.format(nname), fg='magenta')
+                click.secho('W: Could not initialize astrometric data in `{}` '
+                            '(missing RADEC data).'.format(nname), fg='magenta')
                 noastro.append(nname)
             else:
                 # It worked, use the initialized header to write aux file.
@@ -459,10 +468,10 @@ def cli(setup, clear, interpolate, verbose, tmppng, redpng,
         if verbose:
             click.echo('Done.')
 
-    # STEP 4: For all objects realign and median the aux images.
+    # STEP 4: For all objects stack (i.e. realign and median) the aux images.
     # You are left with one image per object per filter per exposure.
     if not nostack:
-        click.secho('Realigning/Stacking object images:', fg='green')
+        click.secho('Stacking object images:', fg='green')
         for obj in object_files:
             if verbose:
                 click.secho('  {}:'.format(obj), fg='blue')
@@ -491,37 +500,42 @@ def cli(setup, clear, interpolate, verbose, tmppng, redpng,
                 stacked_data = align_and_median(aux_files)
                 stacked_header = fits.getheader('{}/{}'
                                                 ''.format(OBJ,
-                                                          names_per_tag[tag][0]))
+                                                         names_per_tag[tag][0]))
                 # Try to initialize astrometric data in stacked file header.
                 stacked_header_init = init_astro_header(stacked_header)
                 if stacked_header_init == -1:
                     # The initialization failed...
-                    click.secho('W: Could not initialize astrometric data in {} (missing RADEC data).'.format(nname), fg='magenta')
+                    click.secho('W: Could not initialize astrometric data in '
+                                '`{}` (missing RADEC data).'.format(nname),
+                                fg='magenta')
                 else:
-                    # It worked, use the initialized header to write stacked file.
+                    # It worked, use the initialized header for stacked file.
                     stacked_header =  stacked_header_init
 
                 # Write fits file and header.
-                fits.writeto(nname, stacked_data, stacked_header, overwrite=True)
+                fits.writeto(nname, stacked_data, stacked_header,
+                             overwrite=True)
                 fits.setval(nname, 'FILTER', value=f)
                 fits.setval(nname, 'IMAGETYP', value='Light Frame')
-                fits.setval(nname, 'EXPTIME', value=float(e) / 1000., comment=HC)
-                fits.setval(nname, 'EXPOSURE', value=float(e) / 1000., comment=HC)
+                fits.setval(nname, 'EXPTIME', value=float(e) / 1000.,
+                            comment=HC)
+                fits.setval(nname, 'EXPOSURE', value=float(e) / 1000.,
+                            comment=HC)
                 fits.setval(nname, 'OBJECT', value=obj)
                 if verbose:
                     click.echo('       Done ({} images).'.format(len(aux_files)))
 
-    # STEP 5: If options redpng or tmppng are on, write
-    # PNG versions of all the tmp and reduced/stacked images.
+    # STEP 5: If options stkpng or tmppng are on, write
+    # PNG versions of all the auxiliary, master and stacked images.
     if redpng:
-        click.secho('Writing PNG versions of reduced/stacked images... ',
+        click.secho('Writing PNG versions of stacked images... ',
                     fg='green', nl=False)
         for ffile in glob('{}/*.fits'.format(STK)):
             write_png(ffile, plt)
         click.secho('Done.', fg='green')
 
     if tmppng:
-        click.secho('Writing PNG versions of master and intermediate images... ',
+        click.secho('Writing PNG versions of master and auxiliary images... ',
                     fg='green', nl=False)
         for ffile in glob('{}/*.fits'.format(TMP)):
             write_png(ffile, plt)
@@ -531,7 +545,7 @@ def cli(setup, clear, interpolate, verbose, tmppng, redpng,
 
     # STEP 6: If options sex, psfex or sexagain are on,
     # run the astromatic suite.
-    # Sexagain implies psfex and psfex implies sex and scamp implies sex.
+    # Sexagain implies psfex, psfex implies sex and scamp implies sex.
     psfex = psfex or sexagain
     sex = sex or psfex
     sex = sex or scamp
@@ -541,7 +555,7 @@ def cli(setup, clear, interpolate, verbose, tmppng, redpng,
                     'We will be running the following Astromatic commands: '
                     '{}.'.format(', '.join(filter(eval, ASTROMATIC_LIST))),
                     fg='green')
-        # Setup for the astrometry: initialize empty result folders
+        # Setup for the astrometry: initialize empty result folders.
         for folder in [SEX_RES, PSFEX_RES, SCAMP_RES, RED]:
             if exists(folder):
                 rmtree(folder, ignore_errors=True)
@@ -561,7 +575,8 @@ def cli(setup, clear, interpolate, verbose, tmppng, redpng,
     if sex:
         for ffile in glob('{}/*.fits'.format(TMP)):
             if ffile in noastro:
-                click.secho('W: No enough astrometry data in file {}, skipping sex run. '.format(ffile), fg='magenta')
+                click.secho('W: No enough astrometry data in file `{}`, '
+                            'skipping sex run. '.format(ffile), fg='magenta')
                 continue
             stem = basename(ffile.split('.fit')[0])
             sex_cmd = SEX_TMP.format(ffile, t120_sex, t120_param, default_conv,
@@ -570,26 +585,31 @@ def cli(setup, clear, interpolate, verbose, tmppng, redpng,
                                   SEX_RES, stem + '-obj.fits',
                                   SEX_RES, stem + '.xml')
             if verbose:
-                click.secho('  Submitting SExtractor command: {}'.format(sex_cmd), nl=True, fg='blue')
+                click.secho('  Submitting SExtractor command: {}'.format(sex_cmd),
+                            nl=True, fg='blue')
             system(sex_cmd)
 
     # Run PSFEx with sextractor-determined sources.
     if psfex:
         for ffile in glob('{}/*.fits'.format(TMP)):
             if ffile in noastro:
-                click.secho('W: No enough astrometry data in file {}, skipping psfex run. '.format(ffile), fg='magenta')
+                click.secho('W: Missing astrometry data in file `{}`,'
+                            'skipping psfex run. '.format(ffile), fg='magenta')
                 continue
             stem = basename(ffile.split('.fit')[0])
             psfex_cmd = PSFEX_TMP.format(t120_psfex, stem + '.xml')
             if verbose:
-                click.secho('  Submitting PSFex command: {}'.format(psfex_cmd), nl=True, fg='blue')
+                click.secho('  Submitting PSFex command: {}'.format(psfex_cmd),
+                            nl=True, fg='blue')
             system(psfex_cmd)
 
     # Run sextractor with PSFEx-determined PSF.
     if sexagain:
         for ffile in glob('{}/*.fits'.format(TMP)):
             if ffile in noastro:
-                click.secho('W: No enough astrometry data in file {}, skipping second sex run. '.format(ffile), fg='magenta')
+                click.secho('W: Missing astrometry data in file `{}`, '
+                            'skipping second sex run.'.format(ffile),
+                            fg='magenta')
                 continue
             stem = basename(ffile.split('.fit')[0])
             sexagain_cmd = SEX_TMP.format(ffile, t120_sex, t120_parampsfex,
@@ -600,56 +620,61 @@ def cli(setup, clear, interpolate, verbose, tmppng, redpng,
                                   SEX_RES, stem + '.xml')\
                          + SEXAGAIN_OPT_TMP.format(stem + '.psf')
             if verbose:
-                click.secho('  Submitting second SExtractor command: {}'.format(sexagain_cmd), nl=True, fg='blue')
+                click.secho('  Submitting second SExtractor command: '
+                '{}'.format(sexagain_cmd), nl=True, fg='blue')
             system(sexagain_cmd)
 
-    # Run SCAMP
+    # Run SCAMP.
     if scamp:
         listldac = glob('{}/*.ldac'.format(SEX_RES))
         scamp_cmd = SCAMP_TMP.format(' '.join(listldac), t120_scamp, t120_ahead)
         if verbose:
-            click.secho('  Submitting SCAMP commad: {}'.format(scamp_cmd), nl=True, fg='blue')
+            click.secho('  Submitting SCAMP command: {}'.format(scamp_cmd),
+                        nl=True, fg='blue')
         system(scamp_cmd)
 
-        #  read scamp result
+        # Read scamp result.
         scampxml = 'scamp.xml'
         votable = parse(scampxml)
         table = votable.get_first_table()
         catcont = Table([(table.array['Catalog_Name']).data,
-                         (table.array['XY_Contrast']).data],names=['name','contrast'])
+                         (table.array['XY_Contrast']).data],
+                         names=['name','contrast'])
 
         min_contrast = 10.0
-        # put astrometry info into image fits header
+        # Update astrometry info in fits headers with Scamp results.
         for fhed in glob('{}/*.head'.format(SEX_RES)):
-            # get/set original/reduced image file name
-            key = splitext(basename(fhed))[0].replace('_aux','')
+            # Get/set original/reduced image file name.
+            key = splitext(basename(fhed))[0].replace('_aux', '')
             fori = '{}/{}'.format(UOBJ, u2ar[key])
             fred = '{}/{}'.format(RED, basename(fori))
-            ffts = '{}/{}'.format(TMP, basename(fhed.replace('.head','.fits')))
-            # check if SCAMP contrast is enough
-            mask = catcont['name']==basename(fhed).replace('.head','.ldac')
+            ffts = '{}/{}'.format(TMP, basename(fhed.replace('.head', '.fits')))
+            # Check if SCAMP contrast is enough.
+            mask = catcont['name']==basename(fhed).replace('.head', '.ldac')
             contrast = catcont[mask]['contrast'][0]
-            click.secho('{} = contrast: {}'.format(fori,contrast))
+            click.secho('`{}` = contrast: {}'.format(fori,contrast))
             if (contrast < min_contrast):
-                click.secho('W: Contrast too low ({}) for {}'.format(contrast,fori), fg='magenta')
+                click.secho('W: Contrast too low ({}) for `{}`'.format(contrast,
+                                                                      fori),
+                            fg='magenta')
                 remove(fhed)
-                remove(fhed.replace('.head','.ldac'))
+                remove(fhed.replace('.head', '.ldac'))
                 continue
 
-            # update header
+            # Update header for reduced file.
             red_data = fits.getdata(ffts)
             red_header = fits.Header.fromtextfile(fhed)
             fts_header = fits.getheader(ffts)
-            # write first version of fits file
+            # Write first version of fits file for reduced image.
             fits.writeto(fred, red_data, fts_header, overwrite=True)
-            # now update header
+            # Now update header.
             for hdr_key in red_header:
                 if hdr_key=='HISTORY' or hdr_key=='COMMENT' or 'FLXSCALE':
                     continue
                 fits.setval(fred, hdr_key, value=red_header[hdr_key])
 
             if verbose:
-                click.secho('Reduced data saved in {}.'.format(fred))
+                click.secho('Reduced data saved in `{}`.'.format(fred))
 
     # Report execution time.
     t1 = time()

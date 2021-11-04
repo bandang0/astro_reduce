@@ -1,4 +1,5 @@
-'''cosmetic module for astro_reduce -- functions for image reduction.'''
+'''cosmetic module for astro_reduce -- functions for image cosmetic reduction.
+'''
 
 from os.path import basename
 
