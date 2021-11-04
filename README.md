@@ -99,3 +99,4 @@ During the realignment, images are rolled to superimpose themselves. Therefore, 
 - During the reduction, the headers of synthetic images are filled in with the correct `OBJECT`, `FILTER`, `EXPOSURE`, `EXPTIME` and `IMAGETYP` keyword values. The other keyword values (such as the time of acquisition) are inherited from the parent images (raw darks and flats for master dark and master transmission images; raw object images for final reduced object fields).
 - `fit` and other derivatives can be used as extensions for the FITS files.
 - Remaining hot pixels in the reduced images can be the result of insufficient dithering.
+
