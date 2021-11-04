@@ -499,8 +499,9 @@ def cli(setup, clear, interpolate, verbose, tmppng, stkpng,
                 aux_files = glob('{}/{}_{}_{}_*_{}.fits'.format(TMP, obj, f,
                                                                 e, AUX))
                 stacked_data = align_and_median(aux_files)
-                stacked_header = fits.getheader('{}/{}'.format(OBJ,
-                                                         names_per_tag[tag][0]))
+                stacked_header \
+                    = fits.getheader('{}/{}'.format(OBJ,
+                                                    names_per_tag[tag][0]))
                 # Try to initialize astrometric data in stacked file header.
                 stacked_header_init = init_astro_header(stacked_header)
                 if stacked_header_init == -1:
@@ -576,7 +577,7 @@ def cli(setup, clear, interpolate, verbose, tmppng, stkpng,
     if sex:
         for ffile in glob('{}/*.fits'.format(TMP)):
             if ffile in noastro:
-                click.secho('W: No enough astrometry data in file `{}`, '
+                click.secho('W: Missing astrometry data in file `{}`, '
                             'skipping sex run. '.format(ffile), fg='magenta')
                 continue
             stem = basename(ffile.split('.fit')[0])
@@ -586,8 +587,8 @@ def cli(setup, clear, interpolate, verbose, tmppng, stkpng,
                                      SEX_RES, stem + '-obj.fits',
                                      SEX_RES, stem + '.xml')
             if verbose:
-                click.secho('  Submitting SExtractor command: {}'.format(sex_cmd),
-                            nl=True, fg='blue')
+                click.secho('  Submitting SExtractor command: '
+                            '{}'.format(sex_cmd), nl=True, fg='blue')
             system(sex_cmd)
 
     # Run PSFEx with sextractor-determined sources.
