@@ -62,7 +62,7 @@ If the setup has already been done in the directory by prior use of the `--setup
 - `--help             Show this message and exit.`
 
 
-## Reduction method
+## Cosmetic reduction method
 ### Master dark images
 For a given exposure time, the _master dark_ is calculated as the pixel-wise __median__ of all the dark fields of that exposure. This allows to eliminate cosmic ray traces.
 
@@ -95,8 +95,48 @@ During the realignment, images are rolled to superimpose themselves. Therefore, 
 ## Some things to know
 - As mentioned earlier, the original files in the `DARK`, `FLAT` and `ORIGINAL` folders are not used during the reduction process. Only their copies in the `ar_*` working folders are used.
 - In copying the original files during the setup process, `astro_reduce` in effect backs up your data.
-- `astro_reduce` will deduce the object captured in a given field from the `OBJECT` keyword entry in the file's header. In the reduction, all files of a same object, filter and exposure time are reduced and realigned together. Therefore, in order to keep different series of images of a same object separate, it is recommended to append a tag to the object name in acquiring the images of the series. For example NGC4993-1, NGC4993-2, etc.
-- During the reduction, the headers of synthetic images are filled in with the correct `OBJECT`, `FILTER`, `EXPOSURE`, `EXPTIME` and `IMAGETYP` keyword values. The other keyword values (such as the time of acquisition) are inherited from the parent images (raw darks and flats for master dark and master transmission images; raw object images for final reduced object fields).
+- `astro_reduce` will deduce the object captured in a given field from the `OBJECT` keyword entry in the file's header. In the reduction, all files of a same object, filter and exposure time are cosmetically reduced and stacked together. Therefore, in order to keep different series of images of a same object separate, it is recommended to append a tag to the object name in acquiring the images of the series. For example NGC4993-1, NGC4993-2, etc.
+- During the cosmetic reduction, the headers of synthetic images are filled in with the correct `OBJECT`, `FILTER`, `EXPOSURE`, `EXPTIME` and `IMAGETYP` keyword values. The other keyword values (such as the time of acquisition) are inherited from the parent images (raw darks and flats for master dark and master transmission images; raw object images for final reduced object fields).
+- The cosmetic-reduced images found in `ar_tmp` and then `stacked` are more voluminous (typically 4 times) then the original images, because they are encoded as floats following to the reduction process.
 - `fit` and other derivatives can be used as extensions for the FITS files.
 - Remaining hot pixels in the reduced images can be the result of insufficient dithering.
 
+## Astrometric reduction method
+
+## Enhancing `astro_reduce`
+
+### How can I add an option to `astro_reduce`?
+
+The project uses the [Click](https://palletsprojects.com/p/click/) Python package to handle the CLI options. To add an option, follow these steps:
+1. Add a `@click.option` decorator to the `cli` function defined in `astro_reduce.py`. This allows to define the option's command-line flag, its short version and its help sentence. You can take inspiration from the existing options;
+2. The previous step will define a argument to the `cli` function, with exactly the spelling of the CLI's flag; You must add this argument to the signature of the `cli` function;
+3. So that the listing of current options in the welcome message continues to work properly, you must add the option to the `OPT_LIST` in `helpers.py`;
+4. If the option extends the astrometric reduction capabilities of `astro_reduce`, please also add the option to the `ASTROMATIC_LIST` in `helpers.py`.
+
+For more information on defining options, see the [Click documentation](https://click.palletsprojects.com/en/8.0.x/#documentation).
+
+### Making releases to the PyPi
+
+We use the PyPi to distribute `astro_reduce`. To make a release, follow these steps:
+1. Define the new version of your release in the `x.y.z` form in `setup.py`. This version must not already exist in the PyPi, or else you will run into trouble down the line. We use [semantic versioning](https://semver.org/):
+- Change `x` when you make backwards-incompatible changes, such as changing an existing option or the output format;
+- Change `y` when you make backwards-compatible changes, such as introducing new functionality through a new option or new documentation;
+- Change `z` when you fix minor bugs without noteworthy functionality improvement.
+2. Make sure you have updated the documentation (i.e., this `README`) such that it fits the new version;
+3. Make a commit to the git repository where you indicate the number of the new version;
+4. Run `python3 setup.py bdist_wheel` and then `twine upload dist/*`.
+
+This last step will prompt you for your PyPi credentials. Naturally, it will only work if you have maintainer or owner status on the project's PyPi repository.
+
+### Adding or changing a data file
+
+We also use the PyPi to distribute data files for `astro_reduce`. To include a new file to the distribution, do the following:
+1. Add the file to the `data/` folder in the project repository;
+2. To make sure it is distributed with the rest of the project, list it in the `data_files` option in `setup.py`;
+3. To retrieve the path to the file in the `astro_reduce.py` script in order to use the file, we use
+the `resource_filename` function of the `pkg_resources` package: If you added `my_new_file.txt` to `data/` in the repo, the path to file `my_new_file.txt` in the user's system will be the result of the call to `pkg_resources.resource_filename` with arguments `astro_reduce` and `data/my_new_file.txt`. For example, see how we retrieve the paths to the Astromatic configuration files around line 570 in `astro_reduce.py`.
+
+### Potential improvements
+
+- Allow the user to specify their own configuration file for the Astromatic programs (thus overriding the ones distributed through `pip`).
+- Allow the user to run the Astromatic suite on the stacked images as well, not only on the auxiliary images.
