@@ -14,7 +14,7 @@ import astropy.units as u
 from astropy.coordinates import SkyCoord
 
 # List of all options.
-OPT_LIST = ['setup', 'clear', 'interpolate', 'verbose', 'tmppng', 'redpng',
+OPT_LIST = ['setup', 'clear', 'interpolate', 'verbose', 'tmppng', 'stkpng',
             'sex', 'psfex', 'sexagain', 'scamp', 'nomaster', 'nostack']
 
 # List of astromatic commands.
@@ -34,7 +34,7 @@ OBJ = 'ar_objects'
 DARK = 'ar_darks'
 FLAT = 'ar_flats'
 MASTER = 'ar_masters'
-TMP = 'tmp'
+TMP = 'ar_tmp'
 
 # Astro-reduce results directories.
 STK = 'stacked'

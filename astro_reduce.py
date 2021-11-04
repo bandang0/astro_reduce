@@ -68,7 +68,7 @@ from helpers import SEX_TMP, PSFEX_TMP, SEXAGAIN_OPT_TMP, SCAMP_TMP
               'assume they are already there!).')
 @click.option('--nostack', is_flag=True,
               help='If set, skip the stacking process.')
-def cli(setup, clear, interpolate, verbose, tmppng, redpng,
+def cli(setup, clear, interpolate, verbose, tmppng, stkpng,
         sex, psfex, sexagain, scamp, nomaster, nostack):
     '''Main run of astro_reduce:
 
@@ -528,7 +528,7 @@ def cli(setup, clear, interpolate, verbose, tmppng, redpng,
 
     # STEP 5: If options stkpng or tmppng are on, write
     # PNG versions of all the auxiliary, master and stacked images.
-    if redpng:
+    if stkpng:
         click.secho('Writing PNG versions of stacked images... ',
                     fg='green', nl=False)
         for ffile in glob('{}/*.fits'.format(STK)):
