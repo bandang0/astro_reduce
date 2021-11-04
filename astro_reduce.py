@@ -29,7 +29,7 @@ from helpers import DARK, FLAT, OBJ, TMP, MASTER
 from helpers import DI, FI, RED, STK, AUX
 from helpers import SEX_RES, PSFEX_RES, SCAMP_RES, AR, DATA
 from helpers import T120_SEX, T120_PARAM, T120_PSFEX, T120_PARAMPSFEX
-from helpers import DEFAULT_CONV, T120_SCAMP,T120_AHEAD
+from helpers import DEFAULT_CONV, T120_SCAMP, T120_AHEAD
 from helpers import SEX_TMP, PSFEX_TMP, SEXAGAIN_OPT_TMP, SCAMP_TMP
 
 
@@ -286,7 +286,7 @@ def cli(setup, clear, interpolate, verbose, tmppng, redpng,
 
     if not exists(MASTER) and nomaster:
         click.secho('E: You used the `--nomaster` option but there is no '
-        '`MASTER` folder...', fg='red')
+                    '`MASTER` folder...', fg='red')
         exit(1)
 
     for folder in [MASTER, TMP, STK]:
@@ -428,7 +428,8 @@ def cli(setup, clear, interpolate, verbose, tmppng, redpng,
             # Corresponding master darks and flats. Reading could fail if the
             # user fiddled with the MASTER folder and used `--nomaster`...
             try:
-                mdark_data = fits.getdata('{}/mdark_{}.fits'.format(MASTER,exp))
+                mdark_data = fits.getdata('{}/mdark_{}.fits'.format(MASTER,
+                                                                    exp))
                 mtrans_data = fits.getdata('{}/mtrans_{}.fits'.format(MASTER,
                                                                       filt))
             except FileNotFoundError:
@@ -455,7 +456,7 @@ def cli(setup, clear, interpolate, verbose, tmppng, redpng,
                 noastro.append(nname)
             else:
                 # It worked, use the initialized header to write aux file.
-                aux_header =  aux_header_init
+                aux_header = aux_header_init
 
             # Write fits file and header.
             fits.writeto(nname, aux_data, aux_header, overwrite=True)
@@ -498,8 +499,7 @@ def cli(setup, clear, interpolate, verbose, tmppng, redpng,
                 aux_files = glob('{}/{}_{}_{}_*_{}.fits'.format(TMP, obj, f,
                                                                 e, AUX))
                 stacked_data = align_and_median(aux_files)
-                stacked_header = fits.getheader('{}/{}'
-                                                ''.format(OBJ,
+                stacked_header = fits.getheader('{}/{}'.format(OBJ,
                                                          names_per_tag[tag][0]))
                 # Try to initialize astrometric data in stacked file header.
                 stacked_header_init = init_astro_header(stacked_header)
@@ -510,7 +510,7 @@ def cli(setup, clear, interpolate, verbose, tmppng, redpng,
                                 fg='magenta')
                 else:
                     # It worked, use the initialized header for stacked file.
-                    stacked_header =  stacked_header_init
+                    stacked_header = stacked_header_init
 
                 # Write fits file and header.
                 fits.writeto(nname, stacked_data, stacked_header,
@@ -523,7 +523,8 @@ def cli(setup, clear, interpolate, verbose, tmppng, redpng,
                             comment=HC)
                 fits.setval(nname, 'OBJECT', value=obj)
                 if verbose:
-                    click.echo('       Done ({} images).'.format(len(aux_files)))
+                    click.echo('       Done ({} images).'
+                               ''.format(len(aux_files)))
 
     # STEP 5: If options stkpng or tmppng are on, write
     # PNG versions of all the auxiliary, master and stacked images.
@@ -580,10 +581,10 @@ def cli(setup, clear, interpolate, verbose, tmppng, redpng,
                 continue
             stem = basename(ffile.split('.fit')[0])
             sex_cmd = SEX_TMP.format(ffile, t120_sex, t120_param, default_conv,
-                                  SEX_RES, stem + '.ldac',
-                                  SEX_RES, stem + '-bckg.fits',
-                                  SEX_RES, stem + '-obj.fits',
-                                  SEX_RES, stem + '.xml')
+                                     SEX_RES, stem + '.ldac',
+                                     SEX_RES, stem + '-bckg.fits',
+                                     SEX_RES, stem + '-obj.fits',
+                                     SEX_RES, stem + '.xml')
             if verbose:
                 click.secho('  Submitting SExtractor command: {}'.format(sex_cmd),
                             nl=True, fg='blue')
@@ -613,15 +614,15 @@ def cli(setup, clear, interpolate, verbose, tmppng, redpng,
                 continue
             stem = basename(ffile.split('.fit')[0])
             sexagain_cmd = SEX_TMP.format(ffile, t120_sex, t120_parampsfex,
-                                  default_conv,
-                                  SEX_RES, stem + '.ldac',
-                                  SEX_RES, stem + '-bckg.fits',
-                                  SEX_RES, stem + '-obj.fits',
-                                  SEX_RES, stem + '.xml')\
-                         + SEXAGAIN_OPT_TMP.format(stem + '.psf')
+                                          default_conv,
+                                          SEX_RES, stem + '.ldac',
+                                          SEX_RES, stem + '-bckg.fits',
+                                          SEX_RES, stem + '-obj.fits',
+                                          SEX_RES, stem + '.xml')\
+                + SEXAGAIN_OPT_TMP.format(stem + '.psf')
             if verbose:
                 click.secho('  Submitting second SExtractor command: '
-                '{}'.format(sexagain_cmd), nl=True, fg='blue')
+                            '{}'.format(sexagain_cmd), nl=True, fg='blue')
             system(sexagain_cmd)
 
     # Run SCAMP.
@@ -638,8 +639,8 @@ def cli(setup, clear, interpolate, verbose, tmppng, redpng,
         votable = parse(scampxml)
         table = votable.get_first_table()
         catcont = Table([(table.array['Catalog_Name']).data,
-                         (table.array['XY_Contrast']).data],
-                         names=['name','contrast'])
+                        (table.array['XY_Contrast']).data],
+                        names=['name', 'contrast'])
 
         min_contrast = 10.0
         # Update astrometry info in fits headers with Scamp results.
@@ -650,12 +651,12 @@ def cli(setup, clear, interpolate, verbose, tmppng, redpng,
             fred = '{}/{}'.format(RED, basename(fori))
             ffts = '{}/{}'.format(TMP, basename(fhed.replace('.head', '.fits')))
             # Check if SCAMP contrast is enough.
-            mask = catcont['name']==basename(fhed).replace('.head', '.ldac')
+            mask = catcont['name'] == basename(fhed).replace('.head', '.ldac')
             contrast = catcont[mask]['contrast'][0]
-            click.secho('`{}` = contrast: {}'.format(fori,contrast))
+            click.secho('`{}` = contrast: {}'.format(fori, contrast))
             if (contrast < min_contrast):
                 click.secho('W: Contrast too low ({}) for `{}`'.format(contrast,
-                                                                      fori),
+                                                                       fori),
                             fg='magenta')
                 remove(fhed)
                 remove(fhed.replace('.head', '.ldac'))
@@ -669,7 +670,7 @@ def cli(setup, clear, interpolate, verbose, tmppng, redpng,
             fits.writeto(fred, red_data, fts_header, overwrite=True)
             # Now update header.
             for hdr_key in red_header:
-                if hdr_key=='HISTORY' or hdr_key=='COMMENT' or 'FLXSCALE':
+                if hdr_key == 'HISTORY' or hdr_key == 'COMMENT' or 'FLXSCALE':
                     continue
                 fits.setval(fred, hdr_key, value=red_header[hdr_key])
 

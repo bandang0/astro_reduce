@@ -37,7 +37,8 @@ def align_and_median(infiles):
         bits = basename(infiles[0]).split('_')
         click.secho('\nW: In {}:{}:{}, shifting by {}% of the field size.'
                     '\nW: Beware of ghosts!  '.format(bits[0], bits[1],
-                                                    bits[2], int(100 * t_frac)),
+                                                      bits[2],
+                                                      int(100 * t_frac)),
                     fg='magenta')
 
     # Roll the images to realign them and return their median.

@@ -68,9 +68,11 @@ SEX_TMP = 'sex {} -c {} -PARAMETERS_NAME {} -FILTER_NAME {} '\
         + '-CHECKIMAGE_NAME {}/{},{}/{} -XML_NAME {}/{} '
 PSFEX_TMP = 'psfex -c {} SEXRES/*-c.ldac -XML_NAME PSFRES/{} '\
     + '-CHECKIMAGE_TYPE CHI,PROTOTYPES,SAMPLES,RESIDUALS,SNAPSHOTS '\
-    + '-CHECKIMAGE_NAME PSFRES/chi,PSFRES/proto,PSFRES/samp,PSFRES/resi,PSFRES/snap '\
+    + '-CHECKIMAGE_NAME PSFRES/chi,PSFRES/proto,PSFRES/samp,'\
+    + 'PSFRES/resi,PSFRES/snap '\
     + '-CHECKPLOT_TYPE FWHM,ELLIPTICITY,COUNTS,COUNT_FRACTION,CHI2,RESIDUALS '\
-    + '-CHECKPLOT_NAME PSFRES/fwhm,PSFRES/ellipticity,PSFRES/counts,PSFRES/countfrac,PSFRES/chi,PSFRES/resi '
+    + '-CHECKPLOT_NAME PSFRES/fwhm,PSFRES/ellipticity,PSFRES/counts,PSFRES/'\
+    + 'countfrac,PSFRES/chi,PSFRES/resi '
 SEXAGAIN_OPT_TMP = '-PSF_NAME PSFRES/{} '
 SCAMP_TMP = 'scamp {} -c {} -AHEADER_GLOBAL {}'
 
@@ -91,25 +93,25 @@ def init_astro_header(aux_header):
     # Update header and put basic astrometry information.
     crpix1 = int(aux_header['NAXIS1'] / 2.0)
     crpix2 = int(aux_header['NAXIS2'] / 2.0)
-    aux_header['CRPIX1'] = (crpix1,'Reference pixel on this axis')
-    aux_header['CRPIX2'] = (crpix2,'Reference pixel on this axis')
+    aux_header['CRPIX1'] = (crpix1, 'Reference pixel on this axis')
+    aux_header['CRPIX2'] = (crpix2, 'Reference pixel on this axis')
     # Read and set RADEC center of FOV.
     skycoo = SkyCoord(aux_header['OBJCTRA'],
-                      aux_header['OBJCTDEC'],unit=[u.hourangle,u.deg])
+                      aux_header['OBJCTDEC'], unit=[u.hourangle, u.deg])
     aux_header['CRVAL1'] = (skycoo.ra.to('deg').value,
                             'World coordinate on this axis')
     aux_header['CRVAL2'] = (skycoo.dec.to('deg').value,
                             'World coordinate on this axis')
-    aux_header['CTYPE1'] = ('RA---TAN','WCS projection type for this axis')
-    aux_header['CTYPE2'] = ('DEC--TAN','WCS projection type for this axis')
+    aux_header['CTYPE1'] = ('RA---TAN', 'WCS projection type for this axis')
+    aux_header['CTYPE2'] = ('DEC--TAN', 'WCS projection type for this axis')
     aux_header['CUNIT1'] = ('DEG', 'Axis unit')
-    aux_header['CUNIT2'] = ('DEG','Axis unit')
-    aux_header['EQUINOX'] = (2000.0,' Mean equinox')
-    aux_header['RADESYS'] = ('ICRS ','Astrometric system')
-    aux_header['CD1_1'] = (-2.138738809045E-04,'Linear projection matrix')
-    aux_header['CD1_2'] = (  2.180959444292E-06,'Linear projection matrix')
-    aux_header['CD2_1'] = (-2.331002019312E-06,'Linear projection matrix')
-    aux_header['CD2_2'] = (-2.138176347970E-04,'Linear projection matrix')
+    aux_header['CUNIT2'] = ('DEG', 'Axis unit')
+    aux_header['EQUINOX'] = (2000.0, 'Mean equinox')
+    aux_header['RADESYS'] = ('ICRS ', 'Astrometric system')
+    aux_header['CD1_1'] = (-2.138738809045E-04, 'Linear projection matrix')
+    aux_header['CD1_2'] = (2.180959444292E-06, 'Linear projection matrix')
+    aux_header['CD2_1'] = (-2.331002019312E-06, 'Linear projection matrix')
+    aux_header['CD2_2'] = (-2.138176347970E-04, 'Linear projection matrix')
     return aux_header
 
 
