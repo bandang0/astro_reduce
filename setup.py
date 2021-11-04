@@ -9,8 +9,8 @@ with open("README.md", "r") as fh:
 setup(
     # General info
     name="astro_reduce",
-    version="3.3.0",
-    py_modules=["astro_reduce", "helpers", "cosmetic", "astrometry"],
+    version="4.0.0",
+    py_modules=["astro_reduce", "helpers", "cosmetic"],
 
     # Dependencies
     install_requires=["click",
@@ -45,7 +45,7 @@ setup(
     long_description_content_type="text/markdown",
     long_description=long_description,
     license="MIT",
-    keywords="astronomy reduction images automatic",
+    keywords="astronomy reduction images automatic astrometry",
     classifiers=[
         "Environment :: Console",
         "Programming Language :: Python :: 3.0",
