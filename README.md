@@ -1,4 +1,4 @@
-# astro_reduce -- A simple CCD-image reducer for the _Observatoire de Paris-Meudon_
+# astro_reduce: A simple CCD-image reducer for the _Observatoire de Paris-Meudon_
 
 [![image](http://img.shields.io/pypi/v/astro-reduce.svg)](https://pypi.python.org/pypi/astro-reduce/)
 
