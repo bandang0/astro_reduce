@@ -48,9 +48,10 @@ from helpers import SEX_TMP, PSFEX_TMP, SEXAGAIN_OPT_TMP, SCAMP_TMP
               help='Enables verbose mode (recommended).')
 @click.option('--tmppng', '-t', is_flag=True,
               help='Write PNG format of auxiliary and master images '
-              'after reduction.')
+              'after cosmetic reduction.')
 @click.option('--stkpng', '-r', is_flag=True,
-              help='Write PNG format of stacked images after reduction.')
+              help='Write PNG format of stacked images after cosmetic '
+              'reduction.')
 @click.option('--sex', is_flag=True,
               help='Run the `sex` astromatic command on all auxiliary images '
               'after the cosmetic reduction.')
