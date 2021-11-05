@@ -21,7 +21,7 @@ __Note:__ It is highly recommended to inspect the intermediate images produced b
 
 If options to run the Astromatic software were used, the results can be found after running in the `SEXRES`, `PSFRES` and `SCAMPRES` folders.
 
-[flowchart](https://github.com/bandang0/astro_reduce/blob/documentation/info/flowchart.jpeg)
+![flowchart](https://github.com/bandang0/astro_reduce/blob/documentation/info/flowchart.jpeg)
 
 ## Installing
 The `astro_reduce` program can be installed from the PyPI under the name `astro-reduce`. This package provides the command with all options.
