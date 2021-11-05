@@ -1,4 +1,4 @@
-'''astro_reduce -- A Simple CCD Images Reducer for the Paris Observatory.'''
+'''astro_reduce -- A simple CCD-image reducer for the ObsPM.'''
 
 
 from collections import defaultdict

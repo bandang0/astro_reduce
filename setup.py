@@ -41,7 +41,7 @@ setup(
     author="Raphaël Duque",
     author_email="duque@physik.uni-frankfurt.de",
     url="https://github.com/bandang0/astro_reduce",
-    description="A Simple CCD Images Reducer for the Paris Observatory.",
+    description="A simple CCD-image reducer for the Observatoire de Paris-Meudon.",
     long_description_content_type="text/markdown",
     long_description=long_description,
     license="MIT",
