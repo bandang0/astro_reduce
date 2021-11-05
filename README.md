@@ -21,6 +21,8 @@ __Note:__ It is highly recommended to inspect the intermediate images produced b
 
 If options to run the Astromatic software were used, the results can be found after running in the `SEXRES`, `PSFRES` and `SCAMPRES` folders.
 
+![image](https://github.com/bandang0/astro_reduce/info/flowchart.jpeg)
+
 ## Installing
 The `astro_reduce` program can be installed from the PyPI under the name `astro-reduce`. This package provides the command with all options.
 
@@ -118,7 +120,7 @@ For more information on defining options, see the [Click documentation](https://
 ### Making releases to the PyPi
 
 We use the PyPi to distribute `astro_reduce`. To make a release, follow these steps:
-1. Define the new version of your release in the `x.y.z` form in `setup.py`. This version must not already exist in the PyPi, or else you will run into trouble down the line. We use [semantic versioning](https://semver.org/):
+1. Define the version number of your release in the `x.y.z` form in `setup.py`. This version must not already exist in the PyPi, or else you will run into trouble down the line. We use [semantic versioning](https://semver.org/):
 - Change `x` when you make backwards-incompatible changes, such as changing an existing option or the output format;
 - Change `y` when you make backwards-compatible changes, such as introducing new functionality through a new option or new documentation;
 - Change `z` when you fix minor bugs without noteworthy functionality improvement.
